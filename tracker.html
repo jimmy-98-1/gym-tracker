@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="theme-color" content="#f5f5f7"/>
+<title>Gym Tracker</title>
+<link rel="stylesheet" href="css/styles.css"/>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <span class="app-title">Gym Tracker</span>
+    <div class="topbar-right">
+      <span class="week-badge" id="week-badge">Semana 1</span>
+      <span class="user-badge" id="user-label"></span>
+      <button class="logout-btn" onclick="logout()">Salir</button>
+    </div>
+  </div>
+  <div class="day-nav" id="day-nav"></div>
+</div>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<!-- Technique overlay -->
+<div class="technique-overlay" id="technique-overlay" onclick="closeTechnique()">
+  <div class="technique-card" onclick="event.stopPropagation()">
+    <div class="technique-card-header">
+      <span class="technique-card-name" id="technique-name"></span>
+      <button class="technique-close" onclick="closeTechnique()">✕</button>
+    </div>
+    <div class="technique-card-text" id="technique-text"></div>
+  </div>
+</div>
+
+<!-- Timer popup -->
+<div class="timer-popup-overlay" id="timer-popup-overlay" onclick="closeTimer()">
+  <div class="timer-popup-card" onclick="event.stopPropagation()">
+    <div class="timer-popup-ex" id="timer-popup-ex">Descanso</div>
+    <div class="timer-popup-time" id="timer-popup-time">1:30</div>
+    <div class="timer-popup-bar-wrap">
+      <div class="timer-popup-bar"><div class="timer-popup-fill" id="timer-popup-fill"></div></div>
+    </div>
+    <div class="timer-popup-actions">
+      <button class="timer-popup-btn" id="timer-pause-btn" onclick="toggleTimerPause()">⏸ Pausar</button>
+      <button class="timer-popup-btn timer-popup-btn-close" onclick="closeTimer()">✕ Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Rest picker bottom sheet -->
+<div class="rest-picker-overlay" id="rest-picker-overlay" onclick="closeRestPicker()">
+  <div class="rest-picker-sheet" onclick="event.stopPropagation()">
+    <div class="rest-picker-header">
+      <span class="rest-picker-title">Tiempo de descanso</span>
+      <button class="picker-close" onclick="closeRestPicker()">✕</button>
+    </div>
+    <div class="rest-picker-sub">Se aplicará a todos los ejercicios de esta sesión</div>
+    <div class="rest-picker-options" id="rest-picker-options"></div>
+  </div>
+</div>
+
+<!-- Onboarding overlay -->
+<div class="onboarding-overlay" id="onboarding-overlay">
+  <div class="onboarding-card">
+    <div class="onboarding-logo">🏋️</div>
+    <div class="onboarding-title">¡Bienvenido!</div>
+    <div class="onboarding-sub">Tu tracker de gym personal. Así funciona:</div>
+    <div class="onboarding-steps">
+      <div class="onboarding-step">
+        <div class="onboarding-step-num">1</div>
+        <div class="onboarding-step-text">Introduce el <strong>peso y las reps</strong> de cada serie y márcala con ✓</div>
+      </div>
+      <div class="onboarding-step">
+        <div class="onboarding-step-num">2</div>
+        <div class="onboarding-step-text">El <strong>cronómetro</strong> arranca solo al marcar una serie. El ⏱ de cada ejercicio ajusta el tiempo.</div>
+      </div>
+      <div class="onboarding-step">
+        <div class="onboarding-step-num">3</div>
+        <div class="onboarding-step-text"><strong>Guarda la sesión</strong> al terminar. En Historial verás tu progresión y PRs.</div>
+      </div>
+    </div>
+    <button class="save-btn" onclick="closeOnboarding()">¡Empezar! 💪</button>
+  </div>
+</div>
+
+<!-- Share session overlay -->
+<div class="share-overlay" id="share-overlay" onclick="handleShareOverlayClick(event)">
+  <div class="share-sheet">
+    <div class="share-header">
+      <span class="share-title">Compartir sesión</span>
+      <button class="picker-close" onclick="closeShareOverlay()">✕</button>
+    </div>
+    <div id="share-card-preview"></div>
+    <button class="share-btn" id="share-native-btn" onclick="shareNative()">📤 Compartir</button>
+    <button class="share-copy-btn" onclick="copyShareText()">📋 Copiar resumen</button>
+  </div>
+</div>
+
+<nav class="bottom-nav">
+  <a class="nav-item active" href="tracker.html">
+    <span class="nav-icon">💪</span>
+    <span class="nav-label">Tracker</span>
+  </a>
+  <a class="nav-item" href="rutina.html">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">Rutina</span>
+  </a>
+  <a class="nav-item" href="biblioteca.html">
+    <span class="nav-icon">📊</span>
+    <span class="nav-label">Historial</span>
+  </a>
+</nav>
+
+<script src="js/data.js"></script>
+<script src="js/exercises.js"></script>
+<script src="js/tracker.js"></script>
+</body>
+</html>
