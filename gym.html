@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+<meta name="theme-color" content="#f5f5f7"/>
+<title>Gym Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f5f7;min-height:100vh;padding-bottom:40px}
+.topbar{background:#fff;border-bottom:0.5px solid #e8e8e8;padding:14px 20px 12px;position:sticky;top:0;z-index:100}
+.topbar-row{display:flex;justify-content:space-between;align-items:center}
+.app-title{font-size:13px;font-weight:700;color:#111;letter-spacing:1px;text-transform:uppercase}
+.week-badge{font-size:12px;font-weight:600;background:#f0f0f0;color:#333;padding:4px 10px;border-radius:20px}
+.day-nav{display:flex;gap:6px;overflow-x:auto;padding:12px 20px 0;scrollbar-width:none}
+.day-nav::-webkit-scrollbar{display:none}
+.day-pill{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;white-space:nowrap;border:none;cursor:pointer;transition:all 0.15s;flex-shrink:0}
+.day-pill.active{background:#111;color:#fff}
+.day-pill.rest-day{background:#fff;color:#aaa;border:0.5px solid #e8e8e8}
+.day-pill.inactive{background:#fff;color:#444;border:0.5px solid #e8e8e8}
+.session-header{padding:20px 20px 12px}
+.session-day-label{font-size:11px;color:#888;letter-spacing:2px;text-transform:uppercase;font-weight:500;margin-bottom:4px}
+.session-title{font-size:28px;font-weight:800;color:#111;line-height:1.1;margin-bottom:4px}
+.session-meta{font-size:13px;color:#444;margin-bottom:14px}
+.progress-wrap{background:#fff;border-radius:12px;padding:12px 16px;border:0.5px solid #e8e8e8}
+.progress-track{background:#f0f0f0;border-radius:3px;height:4px;margin-bottom:6px}
+.progress-fill{height:4px;border-radius:3px;background:#111;transition:width 0.4s ease}
+.progress-label{display:flex;justify-content:space-between;font-size:11px;color:#555;font-weight:500}
+.cards-wrap{padding:0 16px}
+.ex-card{background:#fff;border-radius:18px;padding:16px 16px 10px;margin-bottom:10px;border:0.5px solid #e8e8e8;transition:border-color 0.2s}
+.ex-card.done{border-color:#111;border-width:1px}
+.ex-card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px}
+.ex-name{font-size:17px;font-weight:800;color:#111;line-height:1.2;flex:1}
+.ex-done-badge{font-size:10px;font-weight:700;background:#111;color:#fff;padding:3px 8px;border-radius:10px;margin-left:8px;flex-shrink:0;align-self:flex-start;margin-top:2px}
+.ex-sub{font-size:12px;color:#333;margin-bottom:4px;font-weight:500}
+.ex-note{font-size:11px;color:#888;margin-bottom:10px;font-style:italic}
+.series-header{display:grid;grid-template-columns:22px 1fr 66px 66px 32px;gap:6px;align-items:center;padding:0 2px 6px;border-bottom:0.5px solid #f0f0f0;margin-bottom:4px}
+.sh-label{font-size:10px;color:#555;text-align:center;font-weight:600;text-transform:uppercase;letter-spacing:0.5px}
+.series-row{display:grid;grid-template-columns:22px 1fr 66px 66px 32px;gap:6px;align-items:center;padding:5px 2px}
+.s-num{font-size:11px;color:#555;text-align:center;font-family:monospace;font-weight:600}
+.s-ref{font-size:11px;color:#333;font-family:monospace;font-weight:500}
+.s-ref.empty{color:#ccc}
+.s-input{border-radius:9px;font-size:13px;font-weight:700;padding:6px 0;text-align:center;width:100%;font-family:monospace;border:none;outline:none;cursor:pointer;transition:opacity 0.2s}
+.s-input:focus{outline:2px solid #ccc;outline-offset:1px}
+.s-kg{background:#EAF3DE;color:#3B6D11}
+.s-rep{background:#E6F1FB;color:#185FA5}
+.s-input.completed{opacity:0.55}
+.s-check{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;cursor:pointer;margin:0 auto;border:1.5px solid #e0e0e0;background:#fff;transition:all 0.15s;flex-shrink:0}
+.s-check.done{background:#111;border-color:#111}
+.rest-card{background:#fff;border-radius:18px;padding:28px 20px;margin:0 16px;border:0.5px solid #e8e8e8;text-align:center}
+.rest-icon{font-size:40px;margin-bottom:12px}
+.rest-title{font-size:20px;font-weight:800;color:#111;margin-bottom:6px}
+.rest-desc{font-size:14px;color:#555;line-height:1.5}
+.save-wrap{padding:16px 16px 0}
+.save-btn{background:#111;color:#fff;border-radius:16px;padding:16px;text-align:center;font-size:15px;font-weight:700;cursor:pointer;border:none;width:100%;letter-spacing:0.3px;transition:opacity 0.15s}
+.save-btn:active{opacity:0.8}
+.save-btn.saved{background:#3B6D11;color:#fff}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:12px 24px;border-radius:20px;font-size:14px;font-weight:600;opacity:0;transition:opacity 0.3s;pointer-events:none;z-index:999;white-space:nowrap}
+.toast.show{opacity:1}
+.completed-overlay{background:#f0f7eb;border-radius:18px;padding:28px 20px;margin:0 16px;text-align:center;border:1px solid #c0dd97}
+.co-title{font-size:22px;font-weight:800;color:#27500A;margin-bottom:6px}
+.co-sub{font-size:14px;color:#3B6D11;line-height:1.5}
+.expand-btn{font-size:12px;color:#888;border:none;background:none;cursor:pointer;padding:4px 0;margin-top:4px;text-decoration:underline}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-row">
+    <span class="app-title">Gym Tracker</span>
+    <span class="week-badge" id="week-badge">Semana 1</span>
+  </div>
+  <div class="day-nav" id="day-nav"></div>
+</div>
+
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+const ROUTINE = {
+  lun: {
+    label: 'Lun', name: 'Piernas + Core', duration: '~70 min', rest: false,
+    exercises: [
+      { id:'LP', name:'Prensa de piernas', sets:4, reps:'8–12', rpe:'7–8', rest:'2–3 min', note:'Pies altos y separados, rodilla al pecho' },
+      { id:'QE', name:'Extensión de cuádriceps', sets:3, reps:'10–15', rpe:'8', rest:'90 seg', note:'Bajar lento 3 seg, enfocar el estiramiento' },
+      { id:'LC', name:'Curl femoral tumbado', sets:3, reps:'10–15', rpe:'8', rest:'90 seg', note:'Cadera ligeramente flexionada' },
+      { id:'CA', name:'Elevación de talones de pie', sets:4, reps:'12–20', rpe:'7', rest:'60 seg', note:'Rango completo, pausa abajo' },
+      { id:'PF', name:'Plancha frontal', sets:3, reps:'30–45 seg', rpe:'7', rest:'60 seg', note:'Pelvis neutra, no hundir lumbares' },
+      { id:'CP', name:'Crunch en polea alta', sets:3, reps:'12–15', rpe:'7', rest:'60 seg', note:'Flexión de columna controlada' },
+    ]
+  },
+  mar: {
+    label: 'Mar', name: 'Pecho + Tríceps', duration: '~65 min', rest: false,
+    exercises: [
+      { id:'PI', name:'Press inclinado con mancuernas', sets:4, reps:'8–12', rpe:'7–8', rest:'2–3 min', note:'30–45°, codos ligeramente cerrados' },
+      { id:'AP', name:'Aperturas en polea baja', sets:3, reps:'12–15', rpe:'8', rest:'90 seg', note:'Manos abajo, arco amplio' },
+      { id:'FO', name:'Fondos en máquina o banco', sets:3, reps:'10–15', rpe:'7', rest:'90 seg', note:'Torso inclinado para enfatizar pecho' },
+      { id:'ET', name:'Extensión de tríceps en polea', sets:3, reps:'12–15', rpe:'7–8', rest:'60 seg', note:'Codos pegados al cuerpo' },
+      { id:'EC', name:'Extensión sobre cabeza con mancuerna', sets:3, reps:'10–12', rpe:'8', rest:'90 seg', note:'Un brazo o bilateral neutro' },
+    ]
+  },
+  mie: {
+    label: 'Mié', name: 'Espalda + Bíceps', duration: '~70 min', rest: false,
+    exercises: [
+      { id:'JP', name:'Jalón al pecho en polea', sets:4, reps:'8–12', rpe:'7–8', rest:'2 min', note:'Pecho arriba, escápulas bajas, agarre ancho' },
+      { id:'RP', name:'Remo en polea baja', sets:4, reps:'10–12', rpe:'7–8', rest:'2 min', note:'Espalda recta, sin redondear lumbares, agarre neutro' },
+      { id:'JN', name:'Jalón con agarre neutro cerrado', sets:3, reps:'10–15', rpe:'7', rest:'90 seg', note:'Tirón hacia el esternón' },
+      { id:'CM', name:'Curl martillo con mancuernas', sets:3, reps:'10–14', rpe:'8', rest:'90 seg', note:'Agarre neutro, codo fijo, bilateral' },
+      { id:'CB', name:'Curl en polea baja', sets:3, reps:'12–15', rpe:'8', rest:'60 seg', note:'Codo adelantado, tensión constante, agarre neutro' },
+    ]
+  },
+  jue: {
+    label: 'Jue', name: 'Recuperación activa', rest: true,
+    restDesc: 'Paseo 30–40 min o movilidad/estiramientos suaves. El músculo crece en reposo, no en el gym.',
+  },
+  vie: {
+    label: 'Vie', name: 'Hombros + Core', duration: '~65 min', rest: false,
+    exercises: [
+      { id:'PH', name:'Press de hombros con mancuernas', sets:4, reps:'8–12', rpe:'7–8', rest:'2 min', note:'Sentado, espalda apoyada, sin arquear lumbar' },
+      { id:'EL', name:'Elevaciones laterales con mancuerna', sets:4, reps:'15–20', rpe:'7', rest:'60 seg', note:'Codo ligeramente doblado, sin trampa' },
+      { id:'EP', name:'Elevaciones laterales en polea baja', sets:3, reps:'15–20', rpe:'8', rest:'60 seg', note:'Tensión desde abajo, codo alto' },
+      { id:'FP', name:'Facepull en polea alta', sets:3, reps:'15–20', rpe:'6–7', rest:'60 seg', note:'Codos arriba, manos hacia orejas, cuerda' },
+      { id:'DB', name:'Dead bug', sets:3, reps:'8–10 por lado', rpe:'6', rest:'60 seg', note:'Lumbar pegada al suelo siempre' },
+      { id:'C2', name:'Crunch en polea alta', sets:3, reps:'12–15', rpe:'7', rest:'60 seg', note:'Frecuencia 2x semanal en abdomen' },
+    ]
+  },
+  sab: {
+    label: 'Sáb', name: 'Piernas — volumen extra', duration: '~65 min', rest: false,
+    exercises: [
+      { id:'SS', name:'Sentadilla en máquina Smith', sets:4, reps:'8–12', rpe:'7–8', rest:'2–3 min', note:'Pies adelantados, espalda neutra' },
+      { id:'PM', name:'Peso muerto en máquina (hack squat inv.)', sets:4, reps:'10–12', rpe:'7–8', rest:'2 min', note:'Patrón bisagra de cadera sin carga axial' },
+      { id:'ZA', name:'Zancada en máquina o con mancuernas', sets:3, reps:'10–12 por lado', rpe:'7', rest:'90 seg', note:'Paso largo, rodilla sin sobrepasar el pie' },
+      { id:'CS', name:'Curl femoral sentado', sets:3, reps:'10–15', rpe:'8', rest:'90 seg', note:'Mayor estiramiento proximal vs tumbado' },
+      { id:'TS', name:'Elevación de talones sentado', sets:4, reps:'15–20', rpe:'7', rest:'60 seg', note:'Sóleo: rodilla doblada' },
+    ]
+  },
+  dom: {
+    label: 'Dom', name: 'Descanso completo', rest: true,
+    restDesc: 'Descanso total. Aquí es donde el cuerpo supercompensa y creces. Sin gym, sin running intenso.',
+  },
+};
+
+const DAYS = ['lun','mar','mie','jue','vie','sab','dom'];
+const STORAGE_KEY = 'gymtracker_v1';
+
+function loadData() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {}; } catch(e) { return {}; }
+}
+function saveData(data) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+function getWeekKey() {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), 0, 1);
+  const week = Math.ceil(((now - start) / 86400000 + start.getDay() + 1) / 7);
+  return `${now.getFullYear()}-W${week}`;
+}
+
+function getTodayKey() {
+  const d = new Date();
+  return DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
+}
+
+function getLastSessionData(exId, data) {
+  const weeks = Object.keys(data).sort().reverse();
+  for (const wk of weeks) {
+    for (const day of DAYS) {
+      if (data[wk]?.[day]?.[exId]) return data[wk][day][exId];
+    }
+  }
+  return null;
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function getWeekNumber() {
+  const data = loadData();
+  const weeks = Object.keys(data).sort();
+  const wk = getWeekKey();
+  if (!weeks.includes(wk)) { data[wk] = {}; saveData(data); }
+  const allWeeks = Object.keys(loadData()).sort();
+  return allWeeks.indexOf(wk) + 1;
+}
+
+let currentDay = getTodayKey();
+
+function render() {
+  const data = loadData();
+  const wk = getWeekKey();
+  if (!data[wk]) { data[wk] = {}; saveData(data); }
+
+  const weekNum = getWeekNumber();
+  document.getElementById('week-badge').textContent = `Semana ${weekNum}`;
+
+  renderDayNav();
+  renderSession(data, wk);
+}
+
+function renderDayNav() {
+  const nav = document.getElementById('day-nav');
+  nav.innerHTML = '';
+  DAYS.forEach(d => {
+    const btn = document.createElement('button');
+    const info = ROUTINE[d];
+    btn.className = 'day-pill' + (d === currentDay ? ' active' : info.rest ? ' rest-day' : ' inactive');
+    btn.textContent = info.label;
+    btn.onclick = () => { currentDay = d; render(); };
+    nav.appendChild(btn);
+  });
+}
+
+function renderSession(data, wk) {
+  const app = document.getElementById('app');
+  const info = ROUTINE[currentDay];
+  const dayData = data[wk][currentDay] || {};
+
+  let html = `<div class="session-header">
+    <div class="session-day-label">${info.label} · Semana ${getWeekNumber()}</div>
+    <div class="session-title">${info.name}</div>`;
+
+  if (!info.rest) {
+    html += `<div class="session-meta">${info.duration} · ${info.exercises.length} ejercicios</div>`;
+    const done = info.exercises.filter(ex => isExDone(ex, dayData)).length;
+    const pct = Math.round((done / info.exercises.length) * 100);
+    html += `<div class="progress-wrap">
+      <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
+      <div class="progress-label"><span>${done} de ${info.exercises.length} completados</span><span>${pct}%</span></div>
+    </div>`;
+  }
+  html += `</div><div class="cards-wrap">`;
+
+  if (info.rest) {
+    html += `<div class="rest-card">
+      <div class="rest-icon">💤</div>
+      <div class="rest-title">${info.name}</div>
+      <div class="rest-desc">${info.restDesc}</div>
+    </div>`;
+  } else {
+    const allDone = info.exercises.every(ex => isExDone(ex, dayData));
+    if (allDone) {
+      html += `<div class="completed-overlay">
+        <div class="co-title">Sesión completada 💪</div>
+        <div class="co-sub">Todos los ejercicios registrados.<br>Descansa bien, aquí es donde creces.</div>
+      </div><br>`;
+    }
+
+    info.exercises.forEach(ex => {
+      const exData = dayData[ex.id] || {};
+      const lastSession = getLastSessionData(ex.id, data);
+      const done = isExDone(ex, dayData);
+      html += renderExCard(ex, exData, lastSession, done);
+    });
+
+    html += `<div class="save-wrap">
+      <button class="save-btn${allDone?' saved':''}" onclick="saveSession()">${allDone ? '✓ Sesión guardada' : 'Guardar sesión'}</button>
+    </div>`;
+  }
+
+  html += '</div>';
+  app.innerHTML = html;
+}
+
+function isExDone(ex, dayData) {
+  const exData = dayData[ex.id] || {};
+  for (let i = 0; i < ex.sets; i++) {
+    if (!exData[`s${i}_done`]) return false;
+  }
+  return true;
+}
+
+function renderExCard(ex, exData, lastSession, done) {
+  let rows = '';
+  for (let i = 0; i < ex.sets; i++) {
+    const kg = exData[`s${i}_kg`] || '';
+    const rep = exData[`s${i}_rep`] || '';
+    const isDone = exData[`s${i}_done`] || false;
+    const lastKg = lastSession?.[`s${i}_kg`] || '';
+    const lastRep = lastSession?.[`s${i}_rep`] || '';
+    const refText = lastKg && lastRep ? `${lastKg} × ${lastRep}` : '—';
+    const refClass = refText === '—' ? 'empty' : '';
+    rows += `<div class="series-row">
+      <span class="s-num">${i+1}</span>
+      <span class="s-ref ${refClass}">${refText}</span>
+      <input class="s-input s-kg${isDone?' completed':''}" type="number" inputmode="decimal" step="0.5" placeholder="kg" value="${kg}" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${isDone?'readonly':''}/>
+      <input class="s-input s-rep${isDone?' completed':''}" type="number" inputmode="numeric" placeholder="rep" value="${rep}" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${isDone?'readonly':''}/>
+      <div class="s-check${isDone?' done':''}" onclick="toggleSerie('${ex.id}',${i})">
+        <svg width="13" height="13" viewBox="0 0 13 13"><path d="M2 6.5l3.5 3.5 5.5-6" stroke="${isDone?'#fff':'#ccc'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </div>
+    </div>`;
+  }
+
+  return `<div class="ex-card${done?' done':''}">
+    <div class="ex-card-header">
+      <div class="ex-name">${ex.name}</div>
+      ${done ? '<span class="ex-done-badge">✓</span>' : ''}
+    </div>
+    <div class="ex-sub">${ex.sets} series · ${ex.reps} reps · RPE ${ex.rpe} · ${ex.rest} descanso</div>
+    <div class="ex-note">${ex.note}</div>
+    <div class="series-header">
+      <span class="sh-label">#</span>
+      <span class="sh-label" style="text-align:left">Sesión anterior</span>
+      <span class="sh-label">kg</span>
+      <span class="sh-label">reps</span>
+      <span class="sh-label"></span>
+    </div>
+    ${rows}
+  </div>`;
+}
+
+function updateSerie(exId, setIdx, field, value) {
+  const data = loadData();
+  const wk = getWeekKey();
+  if (!data[wk]) data[wk] = {};
+  if (!data[wk][currentDay]) data[wk][currentDay] = {};
+  if (!data[wk][currentDay][exId]) data[wk][currentDay][exId] = {};
+  data[wk][currentDay][exId][`s${setIdx}_${field}`] = value;
+  saveData(data);
+}
+
+function toggleSerie(exId, setIdx) {
+  const data = loadData();
+  const wk = getWeekKey();
+  if (!data[wk]) data[wk] = {};
+  if (!data[wk][currentDay]) data[wk][currentDay] = {};
+  if (!data[wk][currentDay][exId]) data[wk][currentDay][exId] = {};
+  const exData = data[wk][currentDay][exId];
+  const wasDone = exData[`s${setIdx}_done`];
+  exData[`s${setIdx}_done`] = !wasDone;
+  saveData(data);
+  render();
+}
+
+function saveSession() {
+  const data = loadData();
+  const wk = getWeekKey();
+  if (!data[wk]) data[wk] = {};
+  if (!data[wk][currentDay]) data[wk][currentDay] = {};
+  data[wk][currentDay]._saved = true;
+  saveData(data);
+  showToast('Sesión guardada 💪');
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
