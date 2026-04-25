@@ -125,7 +125,7 @@ function renderExCard(ex, exData, lastSession, done) {
     rows += `<div class="series-row">
       <span class="s-num">${i + 1}</span>
       <span class="s-ref ${refText === '—' ? 'empty' : ''}">${refText}</span>
-      <input class="s-input s-kg${isDone ? ' completed' : ''}" type="number" inputmode="decimal" step="0.5" placeholder="kg" value="${kg}"
+      <input class="s-input s-kg${isDone ? ' completed' : ''}" type="text" inputmode="decimal" placeholder="kg" value="${kg}"
         onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${isDone ? 'readonly' : ''}/>
       <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${rep}"
         onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${isDone ? 'readonly' : ''}/>
