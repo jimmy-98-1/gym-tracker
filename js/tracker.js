@@ -175,6 +175,7 @@ function updateSerie(exId, setIdx, field, value) {
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   if (!data[wk][currentDay][exId]) data[wk][currentDay][exId] = {};
+  if (field === 'kg') value = value.replace(',', '.');
   data[wk][currentDay][exId][`s${setIdx}_${field}`] = value;
   saveData(user, data);
 }
