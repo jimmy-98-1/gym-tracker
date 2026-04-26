@@ -13,6 +13,7 @@ function init() {
     const info = effective[d];
     editDays[d] = {
       rest: !!info.rest,
+      name: info.name || ROUTINE[d].name,
       exercises: (info.exercises || []).map(ex => ({ ...ex })),
     };
   });
@@ -33,7 +34,10 @@ function renderPage() {
       <div class="rut-day-row" onclick="handleDayRowClick('${d}')">
         <div class="rut-day-info">
           <span class="rut-day-label">${base.label}</span>
-          <span class="rut-day-name">${base.name}</span>
+          <div class="rut-day-name-row">
+            <span class="rut-day-name" id="day-name-${d}">${editDays[d].name}</span>
+            <button class="rut-rename-btn" onclick="startRename(event,'${d}')" title="Renombrar">✏️</button>
+          </div>
         </div>
         <div style="display:flex;align-items:center;gap:8px">
           <button class="rut-toggle-btn${day.rest ? ' rest' : ' train'}" onclick="toggleRest(event,'${d}')">
@@ -100,6 +104,30 @@ function moveEx(d, idx, dir) {
   const newIdx = idx + dir;
   if (newIdx < 0 || newIdx >= exs.length) return;
   [exs[idx], exs[newIdx]] = [exs[newIdx], exs[idx]];
+  renderPage();
+}
+
+// ─── RENOMBRAR DÍA ───────────────────────────────────────────────────────────
+
+function startRename(e, d) {
+  e.stopPropagation();
+  const span = document.getElementById('day-name-' + d);
+  if (!span || span.querySelector('input')) return;
+  const current = editDays[d].name;
+  span.innerHTML = `<input class="rut-rename-input" id="rename-input-${d}" type="text" value="${current.replace(/"/g, '&quot;')}" maxlength="40"/>`;
+  const input = document.getElementById('rename-input-' + d);
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); applyRename(d, input.value); }
+    if (ev.key === 'Escape') { renderPage(); }
+  });
+  input.addEventListener('blur', function() { applyRename(d, input.value); });
+}
+
+function applyRename(d, value) {
+  const trimmed = value.trim();
+  if (trimmed) editDays[d].name = trimmed;
   renderPage();
 }
 
@@ -201,7 +229,7 @@ function addExercise(d, exId) {
 function saveRoutine() {
   const customDays = {};
   DAYS.forEach(d => {
-    customDays[d] = { rest: editDays[d].rest, exercises: editDays[d].exercises };
+    customDays[d] = { rest: editDays[d].rest, name: editDays[d].name, exercises: editDays[d].exercises };
   });
   saveCustomRoutine(user, customDays);
   showRutinaToast('Rutina guardada ✓');

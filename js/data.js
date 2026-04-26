@@ -193,12 +193,11 @@ function getEffectiveRoutine(user) {
     const base = ROUTINE[d];
     const c = custom[d];
     if (!c) { merged[d] = base; return; }
+    const customName = c.name || null;
     if (c.rest) {
-      // Day marked as rest (could be originally training or rest)
-      merged[d] = { label: base.label, name: base.rest ? base.name : 'Descanso', rest: true, restDesc: base.restDesc ?? REST_DESC_GENERIC };
+      merged[d] = { label: base.label, name: customName || (base.rest ? base.name : 'Descanso'), rest: true, restDesc: base.restDesc ?? REST_DESC_GENERIC };
     } else {
-      // Day marked as training
-      merged[d] = { ...base, rest: false, exercises: c.exercises ?? (base.rest ? [] : base.exercises) };
+      merged[d] = { ...base, rest: false, name: customName || base.name, exercises: c.exercises ?? (base.rest ? [] : base.exercises) };
     }
   });
   return merged;
