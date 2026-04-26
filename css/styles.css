@@ -24,32 +24,63 @@
 body.dark {
   --bg:         #1C1C1E;
   --surface:    #2C2C2E;
-  --surface2:   #3A3A3C;
-  --border:     rgba(255,255,255,0.09);
-  --border2:    rgba(255,255,255,0.18);
+  --surface2:   #48484A;
+  --border:     rgba(255,255,255,0.11);
+  --border2:    rgba(255,255,255,0.22);
   --text:       #FFFFFF;
-  --text2:      #ABABAB;
-  --text3:      #636366;
-  --orange-bg:  #2D1800;
-  --orange-mid: #5C3200;
-  --gold-bg:    #2A1E00;
-  --kg-bg:      #2D1500;
+  --text2:      #D1D1D6;
+  --text3:      #8E8E93;
+  --orange-bg:  #3D2200;
+  --orange-mid: #7A4400;
+  --gold-bg:    #332500;
+  --kg-bg:      #3D2200;
   --kg-text:    #FF9A5C;
-  --rep-bg:     #2B2200;
-  --rep-text:   #D4A017;
+  --rep-bg:     #332B00;
+  --rep-text:   #FFD000;
   --danger:     #FF453A;
 }
 
 body.dark .timer-popup-card { background: #111111; }
-body.dark .toast { background: #3A3A3C; color: #fff; }
-body.dark .ex-progress-row { border-bottom-color: rgba(255,255,255,0.06); }
-body.dark .meta-chip-timer:hover { background: #48484A; }
-body.dark .rut-remove-btn { background: #3D1A1A; }
-body.dark .rut-remove-btn:hover { background: #5C2222; }
+body.dark .toast { background: #48484A; color: #fff; }
+body.dark .ex-progress-row { border-bottom-color: rgba(255,255,255,0.07); }
+body.dark .meta-chip-timer:hover { background: #5A5A5E; }
+body.dark .rut-remove-btn { background: #4A1A1A; }
+body.dark .rut-remove-btn:hover { background: #6B2222; }
 body.dark .cal-future .cal-day-num { color: #48484A; }
 body.dark .cal-empty .cal-day-num { color: #48484A; }
 body.dark .cal-rest .cal-day-num { color: #48484A; }
 body.dark .s-ref.empty { color: #48484A; }
+body.dark .week-badge { background: #3A3A3C; color: #D1D1D6; }
+body.dark .day-pill.rest-day,
+body.dark .day-pill.inactive { background: #2C2C2E; border-color: rgba(255,255,255,0.11); }
+body.dark .meta-chip { background: #48484A; color: #D1D1D6; }
+body.dark .s-kg { background: #4A2800; color: #FF9A5C; }
+body.dark .s-rep { background: #3D3300; color: #FFD000; }
+body.dark .s-rpe { background: #4A2800; color: #FF9A5C; }
+body.dark .sh-label { color: #8E8E93; }
+body.dark .s-num { color: #8E8E93; }
+body.dark .series-header { border-bottom-color: rgba(255,255,255,0.1); }
+body.dark .notes-input { background: #2C2C2E; color: #fff; border-color: rgba(255,255,255,0.15); }
+body.dark .login-card { box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
+body.dark .login-input { background: #1C1C1E; color: #fff; border-color: rgba(255,255,255,0.15); }
+body.dark .user-chip { background: #2C2C2E; color: #fff; }
+body.dark .picker-sheet,
+body.dark .rest-picker-sheet,
+body.dark .technique-card,
+body.dark .confirm-card,
+body.dark .day-detail-sheet { background: #2C2C2E; }
+body.dark .picker-chip { background: #3A3A3C; border-color: rgba(255,255,255,0.11); color: #D1D1D6; }
+body.dark .rest-opt-btn { background: #3A3A3C; }
+body.dark .rest-opt-label { color: #fff; }
+body.dark .confirm-btn-cancel { background: #48484A; color: #D1D1D6; }
+body.dark .dd-notes-block { background: #1C1C1E; border-color: rgba(255,255,255,0.1); }
+body.dark .prog-bar { background: #48484A; }
+body.dark .muscle-bar-wrap { background: #48484A; }
+body.dark .edit-session-btn { background: #3A3A3C; color: #D1D1D6; border-color: rgba(255,255,255,0.11); }
+body.dark .rut-add-btn { background: #2C2C2E; border-color: rgba(255,255,255,0.2); color: #D1D1D6; }
+body.dark .rut-reorder-btn { background: #3A3A3C; border-color: rgba(255,255,255,0.11); color: #8E8E93; }
+body.dark .week-card-badge { background: #3A3A3C; color: #D1D1D6; }
+body.dark .picker-ex-item:hover { background: #3D2200; }
 
 /* ─── DARK TOGGLE BUTTON ────────────────────────────────────────────────────── */
 .dark-toggle {

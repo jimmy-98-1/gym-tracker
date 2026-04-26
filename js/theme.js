@@ -9,17 +9,23 @@
 
   function toggleTheme() {
     var dark = !document.body.classList.contains('dark');
-    localStorage.setItem(STORAGE_KEY, dark ? 'dark' : 'light');
+    try { localStorage.setItem(STORAGE_KEY, dark ? 'dark' : 'light'); } catch (e) {}
     applyTheme(dark);
   }
 
-  // Apply saved theme immediately to avoid flash
-  var saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === 'dark') document.body.classList.add('dark');
+  // Apply saved theme immediately (script is at end of body, DOM is ready)
+  var saved;
+  try { saved = localStorage.getItem(STORAGE_KEY); } catch (e) {}
+  var isDark = saved === 'dark';
+  if (isDark) document.body.classList.add('dark');
 
   window.toggleTheme = toggleTheme;
 
-  document.addEventListener('DOMContentLoaded', function () {
-    applyTheme(document.body.classList.contains('dark'));
-  });
+  // Run once DOM is fully ready (handles both sync and async load timing)
+  function init() { applyTheme(document.body.classList.contains('dark')); }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
 })();
