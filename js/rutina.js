@@ -128,6 +128,7 @@ function startRename(e, d) {
 function applyRename(d, value) {
   const trimmed = value.trim();
   if (trimmed) editDays[d].name = trimmed;
+  saveRoutine();
   renderPage();
 }
 
