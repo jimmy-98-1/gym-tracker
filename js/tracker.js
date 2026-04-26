@@ -1,4 +1,27 @@
 const user = requireUser('index.html');
+
+function formatTodayDate() {
+  const now = new Date();
+  return now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+const MOTIVATIONS = [
+  '💪 ¡A por ello, {name}!',
+  '🔥 ¡Tú puedes, {name}!',
+  '⚡ ¡Hoy toca dar el máximo, {name}!',
+  '🚀 ¡Vamos allá, {name}!',
+  '🏆 ¡Un día más, {name}!',
+  '💥 ¡Sin excusas, {name}!',
+  '😤 ¡Que no te pare nada, {name}!',
+  '🎯 ¡Enfocado y a por ello, {name}!',
+  '⚔️ ¡El gym te espera, {name}!',
+  '🦾 ¡Modo bestia activado, {name}!',
+];
+
+function getDayMotivation(name) {
+  const idx = new Date().getDate() % MOTIVATIONS.length;
+  return MOTIVATIONS[idx].replace('{name}', name);
+}
 let currentDay = getTodayKey();
 let R = getEffectiveRoutine(user);
 
@@ -22,8 +45,7 @@ function render() {
   if (!data[wk]) { data[wk] = {}; saveData(user, data); }
 
   const weekNum = getWeekNumber(user);
-  document.getElementById('week-badge').textContent = `Semana ${weekNum}`;
-  document.getElementById('user-label').textContent = user;
+  document.getElementById('week-badge').textContent = formatTodayDate();
 
   renderDayNav();
   renderSession(data, wk, weekNum);
@@ -48,7 +70,7 @@ function renderSession(data, wk, weekNum) {
   const dayData = data[wk][currentDay] || {};
 
   let html = `<div class="session-header">
-    <div class="session-day-label">${info.label} · Semana ${weekNum}</div>
+    <div class="session-day-label">${getDayMotivation(user)}</div>
     <div class="session-title">${info.name}</div>`;
 
   if (info.rest) {
