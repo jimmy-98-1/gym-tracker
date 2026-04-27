@@ -20,7 +20,7 @@ const MOTIVATIONS = [
 
 function getDayMotivation(name) {
   const idx = new Date().getDate() % MOTIVATIONS.length;
-  return MOTIVATIONS[idx].replace('{name}', name);
+  return MOTIVATIONS[idx].replace('{name}', escapeHTML(name)); // SECURITY: escape username before HTML interpolation
 }
 let currentDay = getTodayKey();
 let R = getEffectiveRoutine(user);
@@ -71,14 +71,14 @@ function renderSession(data, wk, weekNum) {
 
   let html = `<div class="session-header">
     <div class="session-day-label">${getDayMotivation(user)}</div>
-    <div class="session-title">${info.name}</div>`;
+    <div class="session-title">${escapeHTML(info.name)}</div>`; // SECURITY: info.name may be user-renamed
 
   if (info.rest) {
     html += `</div><div class="cards-wrap"><div class="rest-card">
       <div class="rest-icon">💤</div>
-      <div class="rest-title">${info.name}</div>
+      <div class="rest-title">${escapeHTML(info.name)}</div>
       <div class="rest-desc">${info.restDesc}</div>
-    </div></div>`;
+    </div></div>`; // SECURITY: escapeHTML on user-renameable day name
     app.innerHTML = html;
     return;
   }
@@ -128,7 +128,7 @@ function renderSession(data, wk, weekNum) {
   </div>
   <div class="notes-wrap">
     <div class="notes-label">Notas</div>
-    <textarea class="notes-input" rows="2" placeholder="¿Cómo fue? Sensaciones, ajustes para la próxima..." onchange="saveNotes(this.value)">${notes.replace(/</g,'&lt;')}</textarea>
+    <textarea class="notes-input" rows="2" placeholder="¿Cómo fue? Sensaciones, ajustes para la próxima..." onchange="saveNotes(this.value)">${escapeHTML(notes)}</textarea>
   </div></div>`;
 
   app.innerHTML = html;
@@ -175,9 +175,9 @@ function renderExCard(ex, exData, lastSession, done) {
     </div>
     <div class="ex-meta-chips">
       <span class="meta-chip">🔁 ${ex.sets} series</span>
-      <span class="meta-chip">📊 ${ex.reps} reps</span>
-      <span class="meta-chip">🎯 RPE ${ex.rpe}</span>
-      <button class="meta-chip meta-chip-timer${restIsCustom ? ' custom' : ''}" onclick="openRestPicker('${ex.id}','${ex.rest}')">⏱ ${restDisplay} ▾</button>
+      <span class="meta-chip">📊 ${escapeHTML(String(ex.reps))} reps</span>
+      <span class="meta-chip">🎯 RPE ${escapeHTML(String(ex.rpe))}</span>
+      <button class="meta-chip meta-chip-timer${restIsCustom ? ' custom' : ''}" data-exid="${escapeHTML(ex.id)}" data-rest="${escapeHTML(String(ex.rest))}" onclick="openRestPicker(this.dataset.exid,this.dataset.rest)">⏱ ${escapeHTML(restDisplay)} ▾</button>
     </div>
     <div class="series-header">
       <span class="sh-label">#</span>
@@ -452,12 +452,13 @@ function openShareOverlay() {
   const months = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const dateStr = `${today.getDate()} de ${months[today.getMonth()]}`;
 
-  const exChips = exLines.map(e => `<span class="share-card-ex">${e.name} ${e.kg}kg×${e.rep}</span>`).join('');
+  // SECURITY: escape user-controlled strings before inserting into innerHTML
+  const exChips = exLines.map(e => `<span class="share-card-ex">${escapeHTML(e.name)} ${e.kg}kg×${e.rep}</span>`).join('');
 
   document.getElementById('share-card-preview').innerHTML = `
     <div class="share-card-preview">
-      <div class="share-card-user">${user} · ${dateStr}</div>
-      <div class="share-card-session">${info.name}</div>
+      <div class="share-card-user">${escapeHTML(user)} · ${dateStr}</div>
+      <div class="share-card-session">${escapeHTML(info.name)}</div>
       <div class="share-card-stats">
         <div class="share-card-stat"><div class="share-card-stat-val">${totalSeries}</div><div class="share-card-stat-label">Series</div></div>
         <div class="share-card-stat"><div class="share-card-stat-val">${volStr}</div><div class="share-card-stat-label">Volumen</div></div>

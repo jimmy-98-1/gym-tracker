@@ -185,6 +185,16 @@ function setOnboarded(user) {
   localStorage.setItem(getOnboardedKey(user), '1');
 }
 
+// SECURITY: centralized HTML escaping utility — prevents XSS when interpolating user data into innerHTML
+function escapeHTML(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 function getEffectiveRoutine(user) {
   const custom = getCustomRoutine(user);
   if (!custom) return ROUTINE;

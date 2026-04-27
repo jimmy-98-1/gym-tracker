@@ -236,6 +236,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 /* Side stats */
 .side-stats { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.sstat-row { display: flex; gap: 8px; }
+.sstat-row .sstat-card { flex: 1; min-width: 0; }
 .sstat-card { background: var(--surface); border-radius: 14px; border: 0.5px solid var(--border); padding: 10px 12px; }
 .sstat-icon { font-size: 16px; line-height: 1; margin-bottom: 4px; }
 .sstat-val { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1; margin-bottom: 2px; }
@@ -474,6 +476,38 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .muscle-bar-wrap { flex: 1; background: var(--surface2); border-radius: 4px; height: 7px; overflow: hidden; }
 .muscle-bar { height: 100%; border-radius: 4px; transition: width 0.5s ease; min-width: 4px; }
 .muscle-sets { font-size: 11px; font-weight: 700; color: var(--text2); width: 52px; text-align: right; flex-shrink: 0; }
+
+/* ─── SSTAT MICRO-INTERACCIONES ────────────────────────────────────────────── */
+.sstat-card { transition: transform 0.12s ease; cursor: pointer; }
+.sstat-tap { transform: scale(0.94) !important; }
+
+/* Streak fire */
+@keyframes fire-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,107,0,0); border-color: var(--border); }
+  50%       { box-shadow: 0 0 14px 4px rgba(255,107,0,0.38); border-color: var(--orange); }
+}
+.sstat-streak-hot { animation: fire-pulse 2s ease-in-out infinite; border-color: var(--orange) !important; }
+.streak-fire-bar {
+  height: 2px; border-radius: 2px; margin-top: 6px;
+  background: linear-gradient(90deg, #FF6B00, #FF4500, #FFD700, #FF4500, #FF6B00);
+  background-size: 250% 100%;
+  animation: fire-bar-move 1.6s linear infinite;
+}
+@keyframes fire-bar-move { 0% { background-position: 0% 0%; } 100% { background-position: 250% 0%; } }
+
+/* Circular progress */
+.sstat-circ { display: flex; flex-direction: column; align-items: center; padding: 8px 6px 6px; }
+.circ-prog-svg { display: block; }
+
+/* ─── BODY HEATMAP ─────────────────────────────────────────────────────────── */
+.heatmap-section-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; padding-left: 2px; }
+.heatmap-card { background: var(--surface); border-radius: 16px; border: 0.5px solid var(--border); padding: 14px 10px 10px; }
+.heatmap-empty { text-align: center; padding: 24px 16px; }
+.heatmap-empty-icon { font-size: 34px; margin-bottom: 10px; }
+.heatmap-empty-text { font-size: 13px; color: var(--text3); line-height: 1.5; }
+.heatmap-legend { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 10px; padding-top: 8px; border-top: 0.5px solid var(--border); }
+.heatmap-legend-item { display: flex; align-items: center; gap: 4px; font-size: 10px; color: var(--text3); font-weight: 500; }
+.heatmap-legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
 
 

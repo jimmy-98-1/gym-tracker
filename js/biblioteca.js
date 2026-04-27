@@ -1,9 +1,13 @@
 const user = requireUser('index.html');
 
+function formatTodayDate() {
+  return new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 let calYear, calMonth;
 
 function render() {
-  document.getElementById('user-label').textContent = user;
+  document.getElementById('week-badge').textContent = formatTodayDate();
   const now = new Date();
   if (calYear === undefined) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
 
@@ -15,7 +19,7 @@ function render() {
     stats.totalDays > 0 ? `${stats.totalDays} días entrenados en total` : 'Aún sin sesiones registradas';
 
   renderCalendar(data);
-  renderSideStats(stats);
+  renderSideStats(stats, data);
   renderMuscleVolume(data);
   renderProgression(data);
 }
@@ -80,6 +84,89 @@ function hasDoneData(dayData) {
   );
 }
 
+// ─── VOLUMEN POR DÍA ──────────────────────────────────────────────────────────
+
+function calcDayVolume(date, data) {
+  const wk = getWeekKeyFromDate(date);
+  const dayKey = getDayKeyFromDate(date);
+  const dayData = data[wk]?.[dayKey];
+  if (!dayData) return 0;
+  let vol = 0;
+  Object.entries(dayData).forEach(([k, v]) => {
+    if (k.startsWith('_') || typeof v !== 'object') return;
+    Object.entries(v).forEach(([sk, sv]) => {
+      if (!sk.endsWith('_done') || !sv) return;
+      const idx = sk.replace('_done', '');
+      const kg = parseFloat(v[`${idx}_kg`]) || 0;
+      const rep = parseInt(v[`${idx}_rep`]) || 0;
+      vol += kg * rep;
+    });
+  });
+  return vol;
+}
+
+function calcMonthProgress(data) {
+  const now = new Date();
+  const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+  let trained = 0, total = 0;
+  for (let d = 1; d <= today; d++) {
+    const date = new Date(year, month, d);
+    const dayKey = getDayKeyFromDate(date);
+    if (ROUTINE[dayKey]?.rest) continue;
+    total++;
+    const wk = getWeekKeyFromDate(date);
+    const dayData = data[wk]?.[dayKey];
+    if (dayData?._saved || hasDoneData(dayData)) trained++;
+  }
+  return { trained, total };
+}
+
+// ─── CAROUSEL GAMIFICACIÓN ────────────────────────────────────────────────────
+
+const WEIGHT_REFS = [
+  { emoji: '🧊', singular: 'nevera',          plural: 'neveras',          kg: 80   },
+  { emoji: '🐕', singular: 'Golden Retriever', plural: 'Golden Retrievers', kg: 30   },
+  { emoji: '🐄', singular: 'vaca',             plural: 'vacas',             kg: 600  },
+  { emoji: '🏍️', singular: 'moto',             plural: 'motos',             kg: 200  },
+  { emoji: '🚗', singular: 'coche',            plural: 'coches',            kg: 1300 },
+  { emoji: '🐻', singular: 'oso pardo',        plural: 'osos pardos',       kg: 250  },
+  { emoji: '🦁', singular: 'león',             plural: 'leones',            kg: 190  },
+  { emoji: '🏋️', singular: 'Arnold',           plural: 'Arnolds',           kg: 113  },
+  { emoji: '🐘', singular: 'elefante',         plural: 'elefantes',         kg: 4500 },
+  { emoji: '🦊', singular: 'zorro',            plural: 'zorros',            kg: 6    },
+];
+
+let _carouselTimer = null;
+let _carouselIdx = 0;
+let _carouselItems = [];
+
+function buildCarouselItems(kg) {
+  const items = [];
+  WEIGHT_REFS.forEach(ref => {
+    const n = kg / ref.kg;
+    if (n >= 0.05) {
+      const disp = n >= 100 ? Math.round(n) : n >= 1 ? parseFloat(n.toFixed(1)) : parseFloat(n.toFixed(2));
+      const label = disp === 1 ? ref.singular : ref.plural;
+      items.push(`${ref.emoji} ${disp} ${label}`);
+    }
+  });
+  return items;
+}
+
+function startCarousel(items) {
+  if (_carouselTimer) { clearInterval(_carouselTimer); _carouselTimer = null; }
+  if (!items || items.length <= 1) return;
+  _carouselItems = items;
+  _carouselIdx = 0;
+  _carouselTimer = setInterval(() => {
+    _carouselIdx = (_carouselIdx + 1) % _carouselItems.length;
+    const el = document.getElementById('stat-carousel-text');
+    if (!el) { clearInterval(_carouselTimer); _carouselTimer = null; return; }
+    el.style.opacity = '0';
+    setTimeout(() => { el.textContent = _carouselItems[_carouselIdx]; el.style.opacity = '1'; }, 300);
+  }, 3500);
+}
+
 function funComparison(kg) {
   if (kg <= 0) return null;
   const refs = [
@@ -98,33 +185,61 @@ function funComparison(kg) {
   return `🏋️ ${kg} kg`;
 }
 
-function renderSideStats(s) {
-  const comparison = funComparison(s.totalKg);
+function renderSideStats(s, data) {
+  // Circular progress: days trained this month
+  const mp = calcMonthProgress(data);
+  const pct = mp.total > 0 ? mp.trained / mp.total : 0;
+  const r = 20, sw = 4, cx = 26, cy = 26, size = 52;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * pct;
+  const circleSvg = `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" class="circ-prog-svg">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--surface2)" stroke-width="${sw}"/>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--orange)" stroke-width="${sw}"
+      stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
+      stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
+    <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="9" font-weight="800"
+      fill="var(--text)" font-family="-apple-system,sans-serif">${mp.trained}/${mp.total}</text>
+  </svg>`;
+
+  // Streak
+  const hot = s.currentStreak >= 5;
+  const streakIcon = s.currentStreak >= 7 ? '🔥' : s.currentStreak >= 5 ? '🔥' : '🏃';
+
+  // Carousel
+  const carouselItems = buildCarouselItems(s.totalKg);
+  const initText = carouselItems.length > 0 ? carouselItems[0] : `🏋️ ${s.totalKg} kg`;
+
   document.getElementById('side-stats').innerHTML = `
-    <div class="sstat-card">
-      <div class="sstat-icon">🗓</div>
-      <div class="sstat-val">${s.totalDays}</div>
-      <div class="sstat-label">Días entrenados</div>
+    <div class="sstat-row">
+      <div class="sstat-card${hot ? ' sstat-streak-hot' : ''}" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
+        <div class="sstat-icon">${streakIcon}</div>
+        <div class="sstat-val">${s.currentStreak}</div>
+        <div class="sstat-label">Racha actual</div>
+        ${hot ? '<div class="streak-fire-bar"></div>' : ''}
+      </div>
+      <div class="sstat-card sstat-circ" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
+        ${circleSvg}
+        <div class="sstat-label" style="margin-top:3px">Este mes</div>
+      </div>
     </div>
-    <div class="sstat-card">
-      <div class="sstat-icon">🔥</div>
-      <div class="sstat-val">${s.currentStreak}</div>
-      <div class="sstat-label">Racha actual</div>
-    </div>
-    <div class="sstat-card">
+    <div class="sstat-card" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
       <div class="sstat-icon">⚖️</div>
       <div class="sstat-val">${s.totalKg > 0 ? (s.totalKg >= 1000 ? (s.totalKg/1000).toFixed(1)+'t' : s.totalKg+'kg') : '—'}</div>
       <div class="sstat-label">Peso total</div>
     </div>
-    ${comparison ? `<div class="sstat-card sstat-fun">
+    ${s.totalKg > 0 ? `<div class="sstat-card sstat-fun" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
       <div class="sstat-fun-text">Has levantado</div>
-      <div class="sstat-fun-val">${comparison}</div>
-    </div>` : `<div class="sstat-card">
+      <div class="sstat-fun-val" id="stat-carousel-text" style="transition:opacity 0.3s ease">${initText}</div>
+    </div>` : `<div class="sstat-card" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
       <div class="sstat-icon">🏆</div>
       <div class="sstat-val">${s.bestWeekSessions}</div>
       <div class="sstat-label">Mejor semana</div>
     </div>`}
   `;
+
+  if (s.totalKg > 0 && carouselItems.length > 1) {
+    requestAnimationFrame(() => startCarousel(carouselItems));
+  }
 }
 
 // ─── CALENDAR ─────────────────────────────────────────────────────────────────
@@ -166,6 +281,20 @@ function renderCalendar(data) {
   if (startOffset < 0) startOffset = 6;
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
 
+  // Pre-calc volumes for heatmap
+  const dayVols = {};
+  let maxVol = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const date = new Date(calYear, calMonth, d);
+    if (date > today) continue;
+    const status = getDayStatus(date, data);
+    if (status === 'complete' || status === 'partial') {
+      const vol = calcDayVolume(date, data);
+      dayVols[d] = vol;
+      if (vol > maxVol) maxVol = vol;
+    }
+  }
+
   let html = '';
   for (let i = 0; i < startOffset; i++) html += `<div class="cal-cell"></div>`;
 
@@ -176,12 +305,30 @@ function renderCalendar(data) {
     const status = isFuture ? 'future' : getDayStatus(date, data);
     const tappable = !isFuture && (status === 'complete' || status === 'partial');
 
-    let inner = `<span class="cal-day-num">${d}</span>`;
-    if (status === 'complete') inner = `<span class="cal-day-num">${d}</span><span class="cal-check">✓</span>`;
-    else if (status === 'partial') inner = `<span class="cal-day-num">${d}</span><span class="cal-dot-sm partial"></span>`;
+    let bgStyle = '', numStyle = '', checkStyle = '';
+    if (status === 'complete' || status === 'partial') {
+      const vol = dayVols[d] || 0;
+      const intensity = maxVol > 0 && vol > 0 ? vol / maxVol : (status === 'complete' ? 0.4 : 0.15);
+      const opacity = 0.18 + intensity * 0.82;
+      bgStyle = `background:rgba(255,107,0,${opacity.toFixed(2)});`;
+      if (intensity > 0.5) { numStyle = 'color:#fff;'; checkStyle = 'color:rgba(255,255,255,0.9);'; }
+      else { numStyle = 'color:var(--orange);'; checkStyle = 'color:var(--orange);'; }
+    }
 
+    let inner = `<span class="cal-day-num">${d}</span>`;
+    if (status === 'complete') {
+      inner = `<span class="cal-day-num" style="${numStyle}">${d}</span><span class="cal-check" style="${checkStyle}">✓</span>`;
+    } else if (status === 'partial') {
+      inner = `<span class="cal-day-num" style="${numStyle}">${d}</span><span class="cal-dot-sm partial"></span>`;
+    }
+
+    const styleAttr = bgStyle ? ` style="${bgStyle}"` : '';
     const clickAttr = tappable ? ` onclick="openDayDetail(${calYear},${calMonth},${d})"` : '';
-    html += `<div class="cal-cell cal-${status}${isToday ? ' cal-today' : ''}${tappable ? ' cal-tappable' : ''}"${clickAttr}>${inner}</div>`;
+    // Use cal-heat class for done days (no default bg from CSS), keep other classes for rest/future/empty
+    const cellClass = (status === 'complete' || status === 'partial')
+      ? `cal-cell cal-heat${isToday ? ' cal-today' : ''}${tappable ? ' cal-tappable' : ''}`
+      : `cal-cell cal-${status}${isToday ? ' cal-today' : ''}`;
+    html += `<div class="${cellClass}"${styleAttr}${clickAttr}>${inner}</div>`;
   }
 
   document.getElementById('cal-grid').innerHTML = html;
@@ -303,7 +450,7 @@ function openDayDetail(y, m, d) {
   const notesHtml = dayData._notes
     ? `<div class="dd-notes-block">
         <div class="dd-notes-label">Notas</div>
-        <div class="dd-notes-text">${dayData._notes.replace(/</g,'&lt;')}</div>
+        <div class="dd-notes-text">${escapeHTML(dayData._notes)}</div> <!-- SECURITY: full escapeHTML on user notes -->
       </div>`
     : '';
 

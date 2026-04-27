@@ -1,5 +1,9 @@
 const user = requireUser('index.html');
 
+function formatTodayDate() {
+  return new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 let editDays = {};
 let openDay = null;
 let pickerDay = null;
@@ -7,7 +11,7 @@ let pickerFilter = null;
 let exEditTarget = null;
 
 function init() {
-  document.getElementById('user-label').textContent = user;
+  document.getElementById('week-badge').textContent = formatTodayDate();
   const effective = getEffectiveRoutine(user);
   DAYS.forEach(d => {
     const info = effective[d];
@@ -35,7 +39,7 @@ function renderPage() {
         <div class="rut-day-info">
           <span class="rut-day-label">${base.label}</span>
           <div class="rut-day-name-row">
-            <span class="rut-day-name" id="day-name-${d}">${editDays[d].name}</span>
+            <span class="rut-day-name" id="day-name-${d}">${escapeHTML(editDays[d].name)}</span> <!-- SECURITY: escape user-renamed day name -->
             <button class="rut-rename-btn" onclick="startRename(event,'${d}')" title="Renombrar">✏️</button>
           </div>
         </div>
@@ -59,8 +63,8 @@ function renderPage() {
               <button class="rut-reorder-btn" onclick="moveEx('${d}',${idx},1)"${idx === exCount - 1 ? ' disabled' : ''}>▼</button>
             </div>
             <div class="rut-ex-item-info">
-              <div class="rut-ex-item-name">${ex.name}</div>
-              <div class="rut-ex-item-meta">${ex.sets} series · ${ex.reps} reps · RPE ${ex.rpe}</div>
+              <div class="rut-ex-item-name">${escapeHTML(ex.name)}</div>
+              <div class="rut-ex-item-meta">${ex.sets} series · ${escapeHTML(String(ex.reps))} reps · RPE ${escapeHTML(String(ex.rpe))}</div> <!-- SECURITY: escape reps/rpe — editable by user -->
             </div>
             <button class="rut-edit-btn" onclick="openExEdit('${d}',${idx})" title="Editar">✏️</button>
             <button class="rut-remove-btn" onclick="removeExercise('${d}',${idx})" aria-label="Eliminar">
@@ -114,7 +118,7 @@ function startRename(e, d) {
   const span = document.getElementById('day-name-' + d);
   if (!span || span.querySelector('input')) return;
   const current = editDays[d].name;
-  span.innerHTML = `<input class="rut-rename-input" id="rename-input-${d}" type="text" value="${current.replace(/"/g, '&quot;')}" maxlength="40"/>`;
+  span.innerHTML = `<input class="rut-rename-input" id="rename-input-${d}" type="text" value="${escapeHTML(current)}" maxlength="40"/>`; // SECURITY: full escapeHTML instead of partial quote-only escaping
   const input = document.getElementById('rename-input-' + d);
   input.focus();
   input.select();
