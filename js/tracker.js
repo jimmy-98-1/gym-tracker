@@ -1,11 +1,6 @@
 // SECURITY: requireUser validates the session and its 8-hour expiry; redirects to login if invalid
 const user = requireUser('index.html');
 
-function formatTodayDate() {
-  const now = new Date();
-  return now.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 const MOTIVATIONS = [
   '💪 ¡A por ello, {name}!',
   '🔥 ¡Tú puedes, {name}!',
@@ -27,26 +22,32 @@ function getDayMotivation(name) {
 let currentDay = getTodayKey();
 // SECURITY: R is populated async in render() — never used before first await completes
 let R = {};
+let _cachedData = null;
 
 // Per-exercise rest overrides: { exId: seconds }
 let exRestOverrides = {};
 let pickerTargetEx = null;
 
-// ─── RENDER ───────────────────────────────────────────────────────────────────
-
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+async function loadDataCached(user) {
+  if (_cachedData !== null) return _cachedData;
+  _cachedData = await loadData(user);
+  return _cachedData;
 }
 
+async function saveDataAndCache(user, data) {
+  _cachedData = data;
+  await saveData(user, data);
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────────────────
+
 async function render() {
+  _cachedData = null;
   // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
   R = await getEffectiveRoutine(user);
-  const data = await loadData(user); // SECURITY: AES-GCM decrypted with session key
+  const data = await loadDataCached(user); // SECURITY: AES-GCM decrypted with session key
   const wk = getWeekKey();
-  if (!data[wk]) { data[wk] = {}; await saveData(user, data); }
+  if (!data[wk]) { data[wk] = {}; await saveDataAndCache(user, data); }
 
   const weekNum = await getWeekNumber(user);
   document.getElementById('week-badge').textContent = formatTodayDate();
@@ -155,9 +156,9 @@ function renderExCard(ex, exData, lastSession, done) {
       <span class="s-ref ${refText === '—' ? 'empty' : ''}">${refText}</span>
       <input class="s-input s-kg${isDone ? ' completed' : ''}" type="text" inputmode="decimal" placeholder="kg" value="${escapeHTML(String(kg))}"
         onclick="showPlateCalc(this)"
-        onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${isDone ? 'readonly' : ''}/>
+        oninput="updateSerie('${ex.id}',${i},'kg',this.value)" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${isDone ? 'readonly' : ''}/>
       <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${escapeHTML(String(rep))}"
-        onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${isDone ? 'readonly' : ''}/>
+        oninput="updateSerie('${ex.id}',${i},'rep',this.value)" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${isDone ? 'readonly' : ''}/>
       <input class="s-input s-rpe${isDone ? ' completed' : ''}" type="number" inputmode="numeric" min="1" max="10" placeholder="RPE" value="${escapeHTML(String(rpe))}"
         onchange="updateSerie('${ex.id}',${i},'rpe',this.value)" ${!isDone ? 'disabled' : ''}/>
       <div class="s-check${isDone ? ' done' : ''}" onclick="toggleSerie('${ex.id}',${i})">
@@ -199,20 +200,31 @@ function renderExCard(ex, exData, lastSession, done) {
 }
 
 async function updateSerie(exId, setIdx, field, value) {
-  const data = await loadData(user); // SECURITY: decrypt before mutation
+  const data = await loadDataCached(user); // SECURITY: decrypt before mutation
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   if (!data[wk][currentDay][exId]) data[wk][currentDay][exId] = {};
   if (field === 'kg') value = value.replace(',', '.');
   data[wk][currentDay][exId][`s${setIdx}_${field}`] = value;
-  await saveData(user, data); // SECURITY: encrypt before writing to localStorage
+  await saveDataAndCache(user, data); // SECURITY: encrypt before writing to localStorage
 }
 
 let pendingFlash = null;
 
 async function toggleSerie(exId, setIdx) {
-  const data = await loadData(user);
+  // Flush DOM values before render() destroys the inputs (fixes mobile onchange/blur race)
+  const rowEl = document.querySelector(`.series-row[data-exid="${CSS.escape(exId)}"][data-setidx="${setIdx}"]`);
+  if (rowEl) {
+    const kgInput  = rowEl.querySelector('.s-kg');
+    const repInput = rowEl.querySelector('.s-rep');
+    const rpeInput = rowEl.querySelector('.s-rpe');
+    if (kgInput  && kgInput.value.trim()  !== '') await updateSerie(exId, setIdx, 'kg',  kgInput.value.trim());
+    if (repInput && repInput.value.trim() !== '') await updateSerie(exId, setIdx, 'rep', repInput.value.trim());
+    if (rpeInput && rpeInput.value.trim() !== '' && !rpeInput.disabled) await updateSerie(exId, setIdx, 'rpe', rpeInput.value.trim());
+  }
+
+  const data = await loadDataCached(user);
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
@@ -220,7 +232,7 @@ async function toggleSerie(exId, setIdx) {
   const exData = data[wk][currentDay][exId];
   const wasDone = exData[`s${setIdx}_done`];
   exData[`s${setIdx}_done`] = !wasDone;
-  await saveData(user, data);
+  await saveDataAndCache(user, data);
 
   if (!wasDone) {
     const currentKg = parseFloat(exData[`s${setIdx}_kg`]) || 0;
@@ -241,28 +253,28 @@ async function toggleSerie(exId, setIdx) {
 }
 
 async function saveSession() {
-  const data = await loadData(user);
+  const data = await loadDataCached(user);
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   data[wk][currentDay]._saved = true;
-  await saveData(user, data);
+  await saveDataAndCache(user, data);
   showToast('Sesión guardada 💪');
   await render();
 }
 
 async function unlockSession() {
-  const data = await loadData(user);
+  const data = await loadDataCached(user);
   const wk = getWeekKey();
   if (data[wk]?.[currentDay]) {
     delete data[wk][currentDay]._saved;
-    await saveData(user, data);
+    await saveDataAndCache(user, data);
     await render();
   }
 }
 
 async function saveNotes(value) {
-  const data = await loadData(user);
+  const data = await loadDataCached(user);
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
@@ -271,7 +283,7 @@ async function saveNotes(value) {
   } else {
     delete data[wk][currentDay]._notes;
   }
-  await saveData(user, data);
+  await saveDataAndCache(user, data);
 }
 
 // ─── REST PICKER ──────────────────────────────────────────────────────────────
@@ -482,11 +494,11 @@ function saveTimerState(exName, totalSecs, paused) {
     pausedRemaining: isPaused ? timerCurrentSecs : null,
     totalSecs: totalSecs ?? timerTotal,
   };
-  sessionStorage.setItem('gymTimerState', JSON.stringify(state));
+  sessionStorage.setItem(TIMER_STATE_KEY, JSON.stringify(state));
 }
 
 function clearTimerState() {
-  sessionStorage.removeItem('gymTimerState');
+  sessionStorage.removeItem(TIMER_STATE_KEY);
 }
 
 // ─── PLATE CALCULATOR ─────────────────────────────────────────────────────────
@@ -689,7 +701,7 @@ function closeOnboarding() {
 let shareText = '';
 
 async function openShareOverlay() {
-  const data = await loadData(user); // SECURITY: decrypt workout data for share preview
+  const data = await loadDataCached(user); // SECURITY: decrypt workout data for share preview
   const wk = getWeekKey();
   const dayData = data[wk]?.[currentDay] || {};
   const info = R[currentDay];

@@ -1,10 +1,6 @@
 // SECURITY: requireUser validates session expiry; redirects to login if invalid
 const user = requireUser('index.html');
 
-function formatTodayDate() {
-  return new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 let calYear, calMonth;
 // SECURITY: module-level cache for effective routine — populated async at render time, used sync in helpers
 let _libRoutine = null;

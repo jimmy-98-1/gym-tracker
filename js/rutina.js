@@ -1,10 +1,6 @@
 // SECURITY: requireUser validates session expiry; redirects to login if invalid
 const user = requireUser('index.html');
 
-function formatTodayDate() {
-  return new Date().toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 let editDays = {};
 let openDay = null;
 let pickerDay = null;
@@ -240,7 +236,7 @@ async function saveRoutine() {
   });
   // SECURITY: saveCustomRoutine encrypts routine data with AES-GCM session key
   await saveCustomRoutine(user, customDays);
-  showRutinaToast('Rutina guardada ✓');
+  showToast('Rutina guardada ✓');
 }
 
 function confirmClear() {
@@ -258,14 +254,7 @@ async function doClear() {
   cancelClear();
   openDay = null;
   renderPage();
-  showRutinaToast('Rutina limpiada');
-}
-
-function showRutinaToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2200);
+  showToast('Rutina limpiada');
 }
 
 function logout() {
