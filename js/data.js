@@ -158,6 +158,7 @@ function getLastSessionData(exId, data) {
 }
 
 function isExDone(ex, dayData) {
+  if (ex.type === 'cardio') return !!dayData[ex.id]?._done;
   const exData = dayData[ex.id] || {};
   for (let i = 0; i < ex.sets; i++) {
     if (!exData[`s${i}_done`]) return false;

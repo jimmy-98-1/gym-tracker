@@ -62,7 +62,13 @@ function renderLogin() {
     </div>
   `;
 
-  document.getElementById('login-email').focus();
+  const lastAlias = localStorage.getItem('gym_last_alias');
+  if (lastAlias) {
+    document.getElementById('login-email').value = lastAlias;
+    document.getElementById('login-pass').focus();
+  } else {
+    document.getElementById('login-email').focus();
+  }
   document.getElementById('login-pass')
     .addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
 }
@@ -154,6 +160,7 @@ async function handleLogin() {
   const result = await loginWithCredentials(email, password);
 
   if (result.success) {
+    localStorage.setItem('gym_last_alias', email);
     window.location.href = 'tracker.html';
   } else {
     showError('login-error', result.error);
@@ -204,6 +211,7 @@ async function handleRegister() {
   // Auto-login immediately after successful registration
   const loginResult = await loginWithCredentials(email, password);
   if (loginResult.success) {
+    localStorage.setItem('gym_last_alias', email);
     window.location.href = 'tracker.html';
   } else {
     showError('register-error', 'Cuenta creada. Por favor inicia sesión.');

@@ -205,6 +205,14 @@ const EXERCISE_CATALOG = {
       sets:3, reps:'12–15 por lado', rpe:'7', rest:'60 seg',
       note:'De pie lateral a la polea, agarra el mango por encima de la cabeza. Tira hacia abajo lateralmente usando el oblicuo del mismo lado, no los brazos. Mantén las caderas estables —solo el torso se mueve. Trabaja un lado completamente antes de cambiar, con movimiento lento y controlado.' },
   ],
+  'Cardio': [
+    { id:'REMO',  name:'Remo (máquina)',          type:'cardio', duration_min:15, distance_m:3000, level:5, note:'Mantén la espalda recta, empuja con las piernas primero y luego tira con los brazos. Cadencia constante, no uses solo los brazos. Ideal para calentamiento o HIIT.' },
+    { id:'CINTA', name:'Cinta de correr',          type:'cardio', duration_min:20, distance_m:3000, level:6, note:'Empieza con inclinación del 1–2% para simular terreno real. Mantén la postura erguida y los brazos relajados. Alterna entre trote suave y series de mayor intensidad según el objetivo.' },
+    { id:'BICI',  name:'Bicicleta estática',       type:'cardio', duration_min:20, distance_m:8000, level:5, note:'Ajusta el sillín de modo que la rodilla quede ligeramente doblada en el punto más bajo del pedaleo. Mantén el core activado y no te apoyes excesivamente en el manillar.' },
+    { id:'ELIP',  name:'Elíptica',                 type:'cardio', duration_min:20, distance_m:4000, level:5, note:'Movimiento fluido sin impacto en las articulaciones. Mantén el talón apoyado en el pedal y usa los brazos de forma activa para aumentar el gasto calórico. Ideal para recuperación activa.' },
+    { id:'SKIG',  name:'SkiErg',                   type:'cardio', duration_min:10, distance_m:2000, level:6, note:'Movimiento simétrico de remo aéreo: tira con ambos brazos desde arriba hacia abajo mientras flexionas ligeramente las rodillas. Enganche entre core, hombros y piernas. Muy exigente, empieza con intervalos cortos.' },
+    { id:'ESCAL', name:'Escaladora (StairMaster)',  type:'cardio', duration_min:15, distance_m:0,    level:5, note:'No te apoyes en los laterales con los brazos; el esfuerzo lo hacen las piernas y el glúteo. Paso completo hasta abajo para activar el glúteo mayor. Una de las máquinas con mayor gasto calórico por minuto.' },
+  ],
 };
 
 // Flat map para búsqueda por id

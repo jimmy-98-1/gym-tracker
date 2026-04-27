@@ -607,3 +607,55 @@ body.dark .pass-strength-bar { background: #48484A; }
 .share-copy-btn { width: 100%; background: var(--surface2); color: var(--text2); border: 0.5px solid var(--border); border-radius: 14px; padding: 13px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .share-session-btn { background: var(--surface2); color: var(--text2); border-radius: 14px; padding: 13px; text-align: center; font-size: 14px; font-weight: 600; cursor: pointer; border: 0.5px solid var(--border); width: 100%; font-family: inherit; margin-top: 8px; transition: all 0.15s; }
 .share-session-btn:hover { background: var(--orange-bg); color: var(--orange); border-color: var(--orange-mid); }
+
+/* ─── SESSION STOPWATCH (Feature 1) ──────────────────────────────────────────── */
+.session-stopwatch-row { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+.session-stopwatch-icon { font-size: 14px; }
+.session-stopwatch { font-size: 22px; font-weight: 700; font-family: 'Courier New', monospace; color: var(--orange); letter-spacing: 2px; }
+.start-entreno-row { margin-bottom: 10px; }
+.start-entreno-btn { background: var(--orange); color: #fff; border: none; border-radius: 14px; padding: 13px 20px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; width: 100%; transition: opacity 0.15s; }
+.start-entreno-btn:active { opacity: 0.8; }
+.finish-btn { background: #1a7a3c; }
+.finish-btn:hover { background: #166832; }
+
+/* ─── WORKOUT SUMMARY OVERLAY (Feature 1) ────────────────────────────────────── */
+.ws-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 300; display: none; align-items: flex-end; justify-content: center; }
+.ws-overlay.open { display: flex; }
+.ws-sheet { background: var(--surface); border-radius: 24px 24px 0 0; width: 100%; max-width: 480px; padding: 20px 20px 32px; max-height: 88vh; overflow-y: auto; }
+.ws-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.ws-title { font-size: 18px; font-weight: 800; color: var(--text); }
+.ws-stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.ws-stat-card { background: var(--surface2); border-radius: 16px; padding: 16px 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ws-stat-icon { font-size: 22px; line-height: 1; }
+.ws-stat-val { font-size: 26px; font-weight: 800; color: var(--text); line-height: 1; }
+.ws-stat-label { font-size: 11px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+.ws-star-section { margin-bottom: 20px; }
+.ws-star-label { font-size: 12px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+.ws-star-card { background: var(--gold-bg); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.ws-star-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.ws-star-vol { font-size: 14px; font-weight: 600; color: var(--gold); }
+.ws-pr-badge { font-size: 13px; font-weight: 700; color: var(--orange); margin-top: 4px; }
+.ws-actions { display: flex; flex-direction: column; gap: 10px; }
+.ws-btn-finish { background: var(--orange); color: #fff; border: none; border-radius: 14px; padding: 15px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity 0.15s; }
+.ws-btn-finish:active { opacity: 0.8; }
+.ws-btn-continue { background: var(--surface2); color: var(--text2); border: 0.5px solid var(--border); border-radius: 14px; padding: 14px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
+body.dark .ws-sheet { background: #2C2C2E; }
+body.dark .ws-star-card { background: var(--gold-bg); }
+
+/* ─── SETS ADJUST BUTTONS (Feature 2) ────────────────────────────────────────── */
+.sets-adj-btn { width: 24px; height: 24px; border-radius: 50%; border: 1.5px solid var(--border2); background: var(--surface2); color: var(--text2); font-size: 16px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; line-height: 1; padding: 0; flex-shrink: 0; transition: all 0.15s; }
+.sets-adj-btn:active { background: var(--orange-bg); border-color: var(--orange); color: var(--orange); }
+body.dark .sets-adj-btn { background: #3A3A3C; border-color: rgba(255,255,255,0.2); color: #D1D1D6; }
+
+/* ─── CARDIO CARD (Feature 3) ────────────────────────────────────────────────── */
+.cardio-badge { font-size: 10px; font-weight: 700; background: #1565C0; color: #fff; padding: 2px 7px; border-radius: 8px; letter-spacing: 0.5px; text-transform: uppercase; flex-shrink: 0; }
+.cardio-card { border-left: 3px solid #1565C0; }
+.cardio-inputs { display: flex; gap: 10px; padding: 12px 0 8px; }
+.cardio-field { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.cardio-label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.3px; }
+.cardio-input { width: 100%; text-align: center; }
+.cardio-done-btn { width: 100%; margin-top: 4px; background: var(--surface2); color: var(--text2); border: 1.5px solid var(--border); border-radius: 12px; padding: 11px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.cardio-done-btn.done { background: #1565C0; color: #fff; border-color: #1565C0; }
+.cardio-done-btn:not(.done):active { background: #E3F2FD; border-color: #1565C0; color: #1565C0; }
+body.dark .cardio-done-btn { background: #2C2C2E; color: #D1D1D6; border-color: rgba(255,255,255,0.15); }
+body.dark .cardio-done-btn.done { background: #1565C0; color: #fff; }

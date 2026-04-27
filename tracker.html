@@ -110,6 +110,46 @@
   </div>
 </div>
 
+<!-- Workout summary overlay (Feature 1) -->
+<div class="ws-overlay" id="workout-summary-overlay">
+  <div class="ws-sheet">
+    <div class="ws-header">
+      <span class="ws-title">Resumen del entreno</span>
+      <button class="picker-close" onclick="closeWorkoutSummary()">✕</button>
+    </div>
+    <div class="ws-stats-grid">
+      <div class="ws-stat-card">
+        <div class="ws-stat-icon">⏱</div>
+        <div class="ws-stat-val" id="ws-dur">—</div>
+        <div class="ws-stat-label">Duración</div>
+      </div>
+      <div class="ws-stat-card">
+        <div class="ws-stat-icon">✅</div>
+        <div class="ws-stat-val" id="ws-series">0</div>
+        <div class="ws-stat-label">Series</div>
+      </div>
+      <div class="ws-stat-card">
+        <div class="ws-stat-icon">🏋️</div>
+        <div class="ws-stat-val" id="ws-vol">0 kg</div>
+        <div class="ws-stat-label">Volumen</div>
+      </div>
+      <div class="ws-stat-card">
+        <div class="ws-stat-icon">🏆</div>
+        <div class="ws-stat-val" id="ws-prs">0</div>
+        <div class="ws-stat-label">PRs</div>
+      </div>
+    </div>
+    <div class="ws-star-section">
+      <div class="ws-star-label">Ejercicio estrella</div>
+      <div class="ws-star-card" id="ws-star"></div>
+    </div>
+    <div class="ws-actions">
+      <button class="ws-btn-finish" onclick="finishWorkout()">Guardar y terminar</button>
+      <button class="ws-btn-continue" onclick="continueWorkout()">Seguir entrenando</button>
+    </div>
+  </div>
+</div>
+
 <nav class="bottom-nav">
   <a class="nav-item active" href="tracker.html">
     <span class="nav-icon">💪</span>

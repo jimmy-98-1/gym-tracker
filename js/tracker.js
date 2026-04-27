@@ -26,6 +26,8 @@ let _cachedData = null;
 
 // Per-exercise rest overrides: { exId: seconds }
 let exRestOverrides = {};
+// Per-exercise sets overrides: { exId: number } — temporal, se borra al cambiar de día
+let _setsOverrides = {};
 let pickerTargetEx = null;
 
 async function loadDataCached(user) {
@@ -45,6 +47,13 @@ async function render() {
   _cachedData = null;
   // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
   R = await getEffectiveRoutine(user);
+  // Apply in-memory sets overrides (Feature 2 — not persisted to routine)
+  Object.entries(_setsOverrides).forEach(([exId, sets]) => {
+    DAYS.forEach(d => {
+      const ex = R[d]?.exercises?.find(e => e.id === exId);
+      if (ex) ex.sets = sets;
+    });
+  });
   const data = await loadDataCached(user); // SECURITY: AES-GCM decrypted with session key
   const wk = getWeekKey();
   if (!data[wk]) { data[wk] = {}; await saveDataAndCache(user, data); }
@@ -54,6 +63,7 @@ async function render() {
 
   renderDayNav();
   renderSession(data, wk, weekNum);
+  if (sessionStarted()) _tickSessionTimer();
 }
 
 function renderDayNav() {
@@ -64,7 +74,7 @@ function renderDayNav() {
     const info = R[d];
     btn.className = 'day-pill' + (d === currentDay ? ' active' : info.rest ? ' rest-day' : ' inactive');
     btn.textContent = info.label;
-    btn.onclick = () => { currentDay = d; exRestOverrides = {}; render(); };
+    btn.onclick = () => { currentDay = d; exRestOverrides = {}; _setsOverrides = {}; render(); };
     nav.appendChild(btn);
   });
 }
@@ -76,6 +86,7 @@ function renderSession(data, wk, weekNum) {
   // SECURITY: getDisplayName() returns the human display name; user variable holds email (storage key)
   const displayName = getDisplayName() || '';
 
+  const isTimerActive = sessionStarted();
   let html = `<div class="session-header">
     <div class="session-day-label">${getDayMotivation(displayName)}</div>
     <div class="session-title">${escapeHTML(info.name)}</div>`; // SECURITY: info.name may be user-renamed
@@ -126,13 +137,29 @@ function renderSession(data, wk, weekNum) {
 
   const isSaved = !!dayData._saved;
   const notes = dayData._notes || '';
-  html += `<div class="save-wrap">
-    <button class="save-btn${isSaved ? ' saved' : ''}" onclick="saveSession()">
-      ${isSaved ? '✓ Sesión guardada' : 'Guardar sesión'}
-    </button>
-    ${isSaved ? `<button class="edit-session-btn" onclick="unlockSession()">✏️ Editar sesión</button>` : ''}
-    ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}
-  </div>
+
+  let saveAreaHtml;
+  if (isSaved) {
+    saveAreaHtml = `<button class="save-btn saved" onclick="saveSession()">✓ Sesión guardada</button>
+      <button class="edit-session-btn" onclick="unlockSession()">✏️ Editar sesión</button>
+      ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
+  } else if (isTimerActive) {
+    saveAreaHtml = `<button class="save-btn finish-btn" onclick="openWorkoutSummary()">🏁 Fin del entreno</button>
+      ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
+  } else {
+    saveAreaHtml = `<button class="start-entreno-btn" onclick="startSessionTimer();render()">▶ Iniciar entreno</button>
+    ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
+  }
+
+  if (isTimerActive) {
+    html = html.replace(
+      `<div class="session-title">${escapeHTML(info.name)}</div>`,
+      `<div class="session-title">${escapeHTML(info.name)}</div>
+      <div class="session-stopwatch-row"><span class="session-stopwatch-icon">⏱</span><span class="session-stopwatch" id="session-stopwatch">00:00</span></div>`
+    );
+  }
+
+  html += `<div class="save-wrap">${saveAreaHtml}</div>
   <div class="notes-wrap">
     <div class="notes-label">Notas</div>
     <textarea class="notes-input" rows="2" placeholder="¿Cómo fue? Sensaciones, ajustes para la próxima..." onchange="saveNotes(this.value)">${escapeHTML(notes)}</textarea>
@@ -142,6 +169,7 @@ function renderSession(data, wk, weekNum) {
 }
 
 function renderExCard(ex, exData, lastSession, done) {
+  if (ex.type === 'cardio') return renderCardioCard(ex, exData, done);
   let rows = '';
   for (let i = 0; i < ex.sets; i++) {
     const kg = exData[`s${i}_kg`] || '';
@@ -177,6 +205,8 @@ function renderExCard(ex, exData, lastSession, done) {
     <div class="ex-card-header">
       <div class="ex-name">${ex.name}</div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:6px;margin-top:1px">
+        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',-1)" aria-label="Quitar serie">−</button>
+        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',+1)" aria-label="Añadir serie">+</button>
         <button class="ex-info-btn" onclick="showTechnique('${ex.id}','${ex.name.replace(/'/g,"&#39;")}','${noteEsc}')" aria-label="Técnica">💡</button>
         ${done ? '<span class="ex-done-badge">✓</span>' : ''}
       </div>
@@ -284,6 +314,217 @@ async function saveNotes(value) {
     delete data[wk][currentDay]._notes;
   }
   await saveDataAndCache(user, data);
+}
+
+// ─── ADJUST SETS (Feature 2 — temporal, no persiste rutina) ──────────────────
+
+async function adjustSets(exId, delta) {
+  const ex = R[currentDay]?.exercises?.find(e => e.id === exId);
+  if (!ex) return;
+  const current = _setsOverrides[exId] ?? ex.sets;
+  const next = Math.min(10, Math.max(1, current + delta));
+  if (next === current) return;
+  if (delta < 0) {
+    const data = await loadDataCached(user);
+    const wk = getWeekKey();
+    const exData = data[wk]?.[currentDay]?.[exId];
+    if (exData) {
+      delete exData[`s${current - 1}_kg`];
+      delete exData[`s${current - 1}_rep`];
+      delete exData[`s${current - 1}_rpe`];
+      delete exData[`s${current - 1}_done`];
+      await saveDataAndCache(user, data);
+    }
+  }
+  _setsOverrides[exId] = next;
+  await render();
+}
+
+// ─── CARDIO CARD (Feature 3) ──────────────────────────────────────────────────
+
+function renderCardioCard(ex, exData, done) {
+  const durVal  = exData._dur  ?? ex.duration_min ?? '';
+  const distVal = exData._dist ?? ex.distance_m   ?? '';
+  const lvlVal  = exData._lvl  ?? ex.level        ?? '';
+  const ro = done ? 'readonly' : '';
+  const noteEsc = (ex.note || '').replace(/'/g, '&#39;');
+  return `<div class="ex-card cardio-card${done ? ' done' : ''}">
+    <div class="ex-card-header">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="cardio-badge">Cardio</span>
+        <div class="ex-name">${escapeHTML(ex.name)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:6px">
+        <button class="ex-info-btn" onclick="showTechnique('${ex.id}','${ex.name.replace(/'/g,"&#39;")}','${noteEsc}')" aria-label="Técnica">💡</button>
+      </div>
+    </div>
+    <div class="cardio-inputs" data-exid="${escapeHTML(ex.id)}">
+      <div class="cardio-field">
+        <label class="cardio-label">Tiempo (min)</label>
+        <input class="s-input cardio-input" type="number" inputmode="numeric" placeholder="${ex.duration_min}" value="${escapeHTML(String(durVal))}"
+          oninput="updateCardio('${ex.id}','_dur',this.value)" onchange="updateCardio('${ex.id}','_dur',this.value)" ${ro}/>
+      </div>
+      <div class="cardio-field">
+        <label class="cardio-label">Distancia (m)</label>
+        <input class="s-input cardio-input" type="number" inputmode="numeric" placeholder="${ex.distance_m}" value="${escapeHTML(String(distVal))}"
+          oninput="updateCardio('${ex.id}','_dist',this.value)" onchange="updateCardio('${ex.id}','_dist',this.value)" ${ro}/>
+      </div>
+      <div class="cardio-field">
+        <label class="cardio-label">Nivel</label>
+        <input class="s-input cardio-input" type="number" inputmode="numeric" min="1" max="20" placeholder="${ex.level}" value="${escapeHTML(String(lvlVal))}"
+          oninput="updateCardio('${ex.id}','_lvl',this.value)" onchange="updateCardio('${ex.id}','_lvl',this.value)" ${ro}/>
+      </div>
+    </div>
+    <button class="cardio-done-btn${done ? ' done' : ''}" onclick="toggleCardio('${ex.id}')">
+      ${done ? '✓ Completado' : 'Marcar como completado'}
+    </button>
+  </div>`;
+}
+
+async function updateCardio(exId, field, value) {
+  const data = await loadDataCached(user);
+  const wk = getWeekKey();
+  if (!data[wk]) data[wk] = {};
+  if (!data[wk][currentDay]) data[wk][currentDay] = {};
+  if (!data[wk][currentDay][exId]) data[wk][currentDay][exId] = {};
+  data[wk][currentDay][exId][field] = value;
+  await saveDataAndCache(user, data);
+}
+
+async function toggleCardio(exId) {
+  const cardioEl = document.querySelector(`.cardio-inputs[data-exid="${CSS.escape(exId)}"]`);
+  if (cardioEl) {
+    const inputs = cardioEl.querySelectorAll('.cardio-input');
+    const fields = ['_dur', '_dist', '_lvl'];
+    inputs.forEach((inp, i) => {
+      if (inp.value.trim() !== '') updateCardio(exId, fields[i], inp.value.trim());
+    });
+    await new Promise(r => setTimeout(r, 0));
+  }
+  const data = await loadDataCached(user);
+  const wk = getWeekKey();
+  if (!data[wk]) data[wk] = {};
+  if (!data[wk][currentDay]) data[wk][currentDay] = {};
+  if (!data[wk][currentDay][exId]) data[wk][currentDay][exId] = {};
+  data[wk][currentDay][exId]._done = !data[wk][currentDay][exId]._done;
+  await saveDataAndCache(user, data);
+  await render();
+}
+
+// ─── SESSION STOPWATCH (Feature 1) ────────────────────────────────────────────
+
+const SESSION_START_KEY = 'gymSessionStart';
+let _sessionTickInterval = null;
+
+function sessionStarted() {
+  return !!sessionStorage.getItem(SESSION_START_KEY);
+}
+
+function startSessionTimer() {
+  if (!sessionStorage.getItem(SESSION_START_KEY)) {
+    sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
+  }
+  _tickSessionTimer();
+}
+
+function stopSessionTimer() {
+  sessionStorage.removeItem(SESSION_START_KEY);
+  clearInterval(_sessionTickInterval);
+  _sessionTickInterval = null;
+}
+
+function _tickSessionTimer() {
+  clearInterval(_sessionTickInterval);
+  _updateSessionTimerDisplay();
+  _sessionTickInterval = setInterval(_updateSessionTimerDisplay, 1000);
+}
+
+function _updateSessionTimerDisplay() {
+  const el = document.getElementById('session-stopwatch');
+  if (!el) { clearInterval(_sessionTickInterval); return; }
+  const start = parseInt(sessionStorage.getItem(SESSION_START_KEY) || '0', 10);
+  const elapsed = Math.floor((Date.now() - start) / 1000);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  el.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function _getElapsedStr() {
+  const start = parseInt(sessionStorage.getItem(SESSION_START_KEY) || '0', 10);
+  if (!start) return '—';
+  const elapsed = Math.floor((Date.now() - start) / 1000);
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  return `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+
+function openWorkoutSummary() {
+  const data = _cachedData;
+  if (!data) return;
+  const wk = getWeekKey();
+  const dayData = data[wk]?.[currentDay] || {};
+  const exercises = R[currentDay]?.exercises || [];
+
+  let totalSeries = 0, totalVol = 0, totalPRs = 0;
+  let starEx = null, starVol = 0;
+
+  exercises.forEach(ex => {
+    if (ex.type === 'cardio') {
+      if (dayData[ex.id]?._done) totalSeries++;
+      return;
+    }
+    const exData = dayData[ex.id] || {};
+    let exVol = 0;
+    for (let i = 0; i < ex.sets; i++) {
+      if (exData[`s${i}_done`]) {
+        totalSeries++;
+        const kg = parseFloat(exData[`s${i}_kg`]) || 0;
+        const rep = parseInt(exData[`s${i}_rep`]) || 0;
+        const vol = kg * rep;
+        totalVol += vol;
+        exVol += vol;
+        if (kg > 0 && detectPR(ex.id, kg, data, wk)) totalPRs++;
+      }
+    }
+    if (exVol > starVol) { starVol = exVol; starEx = ex; }
+  });
+
+  const volStr = totalVol >= 1000 ? (totalVol / 1000).toFixed(1) + 't' : Math.round(totalVol) + ' kg';
+  const durStr = _getElapsedStr();
+  const starVolStr = starVol >= 1000 ? (starVol / 1000).toFixed(1) + 't' : Math.round(starVol) + ' kg';
+
+  document.getElementById('ws-dur').textContent   = durStr;
+  document.getElementById('ws-series').textContent = totalSeries;
+  document.getElementById('ws-vol').textContent    = volStr;
+  document.getElementById('ws-prs').textContent    = totalPRs;
+
+  const starEl = document.getElementById('ws-star');
+  if (starEx) {
+    starEl.innerHTML = `<div class="ws-star-name">${escapeHTML(starEx.name)}</div>
+      <div class="ws-star-vol">${starVolStr}</div>
+      ${totalPRs > 0 ? '<div class="ws-pr-badge">🔥 ¡Nuevo récord!</div>' : ''}`;
+  } else {
+    starEl.innerHTML = '<div class="ws-star-name">—</div>';
+  }
+
+  document.getElementById('workout-summary-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeWorkoutSummary() {
+  document.getElementById('workout-summary-overlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+async function finishWorkout() {
+  closeWorkoutSummary();
+  stopSessionTimer();
+  await saveSession();
+}
+
+function continueWorkout() {
+  closeWorkoutSummary();
+  startSessionTimer();
 }
 
 // ─── REST PICKER ──────────────────────────────────────────────────────────────
