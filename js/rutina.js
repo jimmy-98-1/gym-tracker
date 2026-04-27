@@ -1,3 +1,4 @@
+// SECURITY: requireUser validates session expiry; redirects to login if invalid
 const user = requireUser('index.html');
 
 function formatTodayDate() {
@@ -10,9 +11,10 @@ let pickerDay = null;
 let pickerFilter = null;
 let exEditTarget = null;
 
-function init() {
+async function init() {
   document.getElementById('week-badge').textContent = formatTodayDate();
-  const effective = getEffectiveRoutine(user);
+  // SECURITY: getEffectiveRoutine decrypts from localStorage via session AES key
+  const effective = await getEffectiveRoutine(user);
   DAYS.forEach(d => {
     const info = effective[d];
     editDays[d] = {
@@ -111,7 +113,7 @@ function moveEx(d, idx, dir) {
   renderPage();
 }
 
-// ─── RENOMBRAR DÍA ───────────────────────────────────────────────────────────
+// ─── RENOMBRAR DÍA ────────────────────────────────────────────────────────────
 
 function startRename(e, d) {
   e.stopPropagation();
@@ -129,10 +131,10 @@ function startRename(e, d) {
   input.addEventListener('blur', function() { applyRename(d, input.value); });
 }
 
-function applyRename(d, value) {
+async function applyRename(d, value) {
   const trimmed = value.trim();
   if (trimmed) editDays[d].name = trimmed;
-  saveRoutine();
+  await saveRoutine();
   renderPage();
 }
 
@@ -172,7 +174,7 @@ function handleExEditOverlayClick(e) {
   if (e.target === document.getElementById('ex-edit-overlay')) closeExEdit();
 }
 
-// ─── PICKER ──────────────────────────────────────────────────────────────────
+// ─── PICKER ───────────────────────────────────────────────────────────────────
 
 function openPicker(d) {
   pickerDay = d;
@@ -231,12 +233,13 @@ function addExercise(d, exId) {
 
 // ─── SAVE / CLEAR ─────────────────────────────────────────────────────────────
 
-function saveRoutine() {
+async function saveRoutine() {
   const customDays = {};
   DAYS.forEach(d => {
     customDays[d] = { rest: editDays[d].rest, name: editDays[d].name, exercises: editDays[d].exercises };
   });
-  saveCustomRoutine(user, customDays);
+  // SECURITY: saveCustomRoutine encrypts routine data with AES-GCM session key
+  await saveCustomRoutine(user, customDays);
   showRutinaToast('Rutina guardada ✓');
 }
 
@@ -248,9 +251,10 @@ function cancelClear() {
   document.getElementById('confirm-overlay').classList.remove('open');
 }
 
-function doClear() {
+async function doClear() {
   DAYS.forEach(d => { editDays[d].exercises = []; });
-  clearCustomRoutine(user);
+  // SECURITY: clearCustomRoutine encrypts the cleared state
+  await clearCustomRoutine(user);
   cancelClear();
   openDay = null;
   renderPage();
@@ -265,7 +269,7 @@ function showRutinaToast(msg) {
 }
 
 function logout() {
-  clearCurrentUser();
+  clearCurrentUser(); // SECURITY: removes session and AES key
   window.location.href = 'index.html';
 }
 
@@ -273,4 +277,5 @@ document.getElementById('picker-overlay').addEventListener('click', function(e) 
   if (e.target === this) closePicker();
 });
 
-init();
+// SECURITY: async init — decrypts routine data before rendering
+init().catch(err => console.error('Rutina init error:', err));

@@ -40,7 +40,7 @@ body.dark {
   --danger:     #FF453A;
 }
 
-body.dark .timer-popup-card { background: #111111; }
+body.dark .timer-fab { background: #1C1C1E; border-color: rgba(255,255,255,0.12); }
 body.dark .toast { background: #48484A; color: #fff; }
 body.dark .ex-progress-row { border-bottom-color: rgba(255,255,255,0.07); }
 body.dark .meta-chip-timer:hover { background: #5A5A5E; }
@@ -194,9 +194,30 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .login-input:focus { border-color: var(--orange); background: var(--surface); }
 .login-btn { margin-top: 16px; background: var(--orange); color: #fff; border-radius: 14px; padding: 16px; text-align: center; font-size: 15px; font-weight: 700; cursor: pointer; border: none; width: 100%; letter-spacing: 0.3px; transition: opacity 0.15s; font-family: inherit; }
 .login-btn:active { opacity: 0.75; }
+.login-btn:disabled { opacity: 0.55; cursor: not-allowed; }
 .login-divider { margin: 24px 0 14px; display: flex; align-items: center; gap: 10px; color: #bbb; font-size: 11px; font-weight: 600; }
 .login-divider::before, .login-divider::after { content: ''; flex: 1; height: 0.5px; background: var(--border); }
 .users-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* ─── LOGIN TABS ────────────────────────────────────────────────────────────── */
+.login-tabs { display: flex; gap: 0; margin-bottom: 22px; background: var(--surface2); border-radius: 12px; padding: 3px; }
+.login-tab { flex: 1; padding: 9px 0; font-size: 13px; font-weight: 700; border: none; background: none; border-radius: 10px; color: var(--text3); cursor: pointer; transition: all 0.18s; font-family: inherit; }
+.login-tab-active { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.09); }
+.login-tab:not(.login-tab-active):hover { color: var(--text2); }
+
+/* ─── LOGIN ERROR ───────────────────────────────────────────────────────────── */
+.login-error { min-height: 18px; font-size: 13px; font-weight: 600; color: var(--danger); margin: 10px 0 2px; line-height: 1.3; }
+
+/* ─── PASSWORD STRENGTH ─────────────────────────────────────────────────────── */
+.pass-strength-wrap { display: flex; align-items: center; gap: 10px; margin: 8px 0 0; }
+.pass-strength-bar { flex: 1; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+.pass-strength-fill { height: 100%; border-radius: 2px; transition: width 0.3s ease, background 0.3s ease; width: 0%; }
+.pass-strength-label { font-size: 11px; font-weight: 700; min-width: 70px; text-align: right; }
+
+/* ─── DARK MODE: NEW LOGIN ELEMENTS ────────────────────────────────────────── */
+body.dark .login-tabs { background: #3A3A3C; }
+body.dark .login-tab-active { background: #2C2C2E; }
+body.dark .pass-strength-bar { background: #48484A; }
 .user-chip { background: var(--bg); border: 0.5px solid var(--border); border-radius: 12px; padding: 11px 14px; font-size: 14px; font-weight: 600; color: var(--text); cursor: pointer; transition: background 0.15s; text-align: left; font-family: inherit; display: flex; align-items: center; gap: 10px; width: 100%; }
 .user-chip:hover { background: var(--orange-bg); border-color: var(--orange-mid); }
 .user-chip-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--orange); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; flex-shrink: 0; }
@@ -348,21 +369,50 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .confirm-btn-danger { width: 100%; background: var(--danger); color: #fff; border: none; border-radius: 14px; padding: 14px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit; margin-bottom: 8px; }
 .confirm-btn-cancel { width: 100%; background: var(--surface2); color: var(--text2); border: none; border-radius: 14px; padding: 14px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
 
-/* ─── TIMER POPUP ──────────────────────────────────────────────────────────── */
-.timer-popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 200; display: none; align-items: center; justify-content: center; padding: 24px; }
-.timer-popup-overlay.open { display: flex; }
-.timer-popup-card { background: var(--text); color: #fff; border-radius: 28px; padding: 32px 28px 28px; width: 100%; max-width: 320px; text-align: center; }
-.timer-popup-overlay.done .timer-popup-card { background: var(--orange); }
-.timer-popup-ex { font-size: 12px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.timer-popup-time { font-size: 72px; font-weight: 800; line-height: 1; letter-spacing: -2px; margin-bottom: 20px; }
-.timer-popup-bar-wrap { margin-bottom: 24px; }
-.timer-popup-bar { background: rgba(255,255,255,0.15); border-radius: 4px; height: 5px; }
-.timer-popup-fill { height: 5px; border-radius: 4px; background: var(--orange); transition: width 1s linear; }
-.timer-popup-overlay.done .timer-popup-fill { background: #fff; }
-.timer-popup-actions { display: flex; gap: 10px; }
-.timer-popup-btn { flex: 1; padding: 13px; border-radius: 14px; border: none; background: rgba(255,255,255,0.15); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; }
-.timer-popup-btn:hover { background: rgba(255,255,255,0.25); }
-.timer-popup-btn-close { background: rgba(255,255,255,0.08); }
+/* ─── TIMER FAB (Floating Mini-Player) ──────────────────────────────────────── */
+.timer-fab { position: fixed; bottom: calc(64px + env(safe-area-inset-bottom) + 10px); right: 14px; z-index: 150; background: #111111; color: #fff; border-radius: 20px; padding: 12px 14px 10px; min-width: 200px; max-width: 240px; box-shadow: 0 8px 28px rgba(0,0,0,0.35); display: none; flex-direction: column; gap: 8px; border: 1px solid rgba(255,255,255,0.08); transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), opacity 0.2s; transform: translateY(12px); opacity: 0; }
+.timer-fab.open { display: flex; transform: translateY(0); opacity: 1; animation: fab-enter 0.3s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+.timer-fab.done { background: var(--orange); }
+@keyframes fab-enter { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.timer-fab-header { display: flex; flex-direction: column; gap: 4px; }
+.timer-fab-ex { font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.5); text-transform: uppercase; letter-spacing: 0.8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.timer-fab-time-row { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.timer-fab-time { font-size: 32px; font-weight: 800; line-height: 1; letter-spacing: -1.5px; flex: 1; text-align: center; }
+.timer-fab-adj { background: rgba(255,255,255,0.12); border: none; color: rgba(255,255,255,0.85); font-size: 11px; font-weight: 700; border-radius: 8px; padding: 4px 7px; cursor: pointer; font-family: inherit; transition: background 0.15s; white-space: nowrap; }
+.timer-fab-adj:hover { background: rgba(255,255,255,0.22); }
+.timer-fab-bar { background: rgba(255,255,255,0.15); border-radius: 3px; height: 3px; }
+.timer-fab-fill { height: 3px; border-radius: 3px; background: var(--orange); transition: width 0.5s linear; }
+.timer-fab.done .timer-fab-fill { background: #fff; }
+.timer-fab-actions { display: flex; gap: 6px; }
+.timer-fab-btn { flex: 1; padding: 8px; border-radius: 10px; border: none; background: rgba(255,255,255,0.12); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; transition: background 0.15s; }
+.timer-fab-btn:hover { background: rgba(255,255,255,0.22); }
+.timer-fab-close { background: rgba(255,255,255,0.07); }
+
+/* ─── PLATE CALCULATOR POPOVER ───────────────────────────────────────────────── */
+.plate-popover { position: absolute; z-index: 300; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; min-width: 190px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: none; }
+.plate-popover.open { display: block; }
+.pc-title { font-size: 12px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+.pc-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
+.pc-label { font-size: 13px; color: var(--text2); font-weight: 500; }
+.pc-val { font-size: 13px; color: var(--text); font-weight: 700; }
+.pc-label-sm { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin: 6px 0 3px; }
+.pc-divider { height: 1px; background: var(--border); margin: 6px 0; }
+.pc-note { font-size: 12px; color: var(--text3); padding: 4px 0; }
+
+/* ─── SET FLASH ANIMATION ────────────────────────────────────────────────────── */
+@keyframes flash-green { 0% { background: transparent; } 25% { background: rgba(76,175,80,0.25); } 60% { background: rgba(76,175,80,0.12); } 100% { background: transparent; } }
+.series-row.flash-green { animation: flash-green 0.9s ease-out; border-radius: 10px; }
+
+/* ─── PROGRESS LABEL SPRING BOUNCE ───────────────────────────────────────────── */
+@keyframes bounce-spring { 0% { transform: scale(1); } 30% { transform: scale(1.18); } 60% { transform: scale(0.95); } 80% { transform: scale(1.05); } 100% { transform: scale(1); } }
+#progress-done-label.bounce-spring { display: inline-block; animation: bounce-spring 0.55s cubic-bezier(0.34,1.56,0.64,1); }
+
+/* ─── TIMER BANNER (other pages) ─────────────────────────────────────────────── */
+.timer-banner { position: fixed; bottom: calc(56px + env(safe-area-inset-bottom)); left: 0; right: 0; z-index: 150; padding: 0 14px 8px; pointer-events: none; }
+.timer-banner-inner { display: flex; align-items: center; justify-content: space-between; background: #111; color: #fff; border-radius: 16px; padding: 11px 16px; text-decoration: none; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+.timer-banner-ex { font-size: 11px; font-weight: 700; opacity: 0.55; text-transform: uppercase; letter-spacing: 0.6px; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.timer-banner-time { font-size: 20px; font-weight: 800; letter-spacing: -0.8px; }
+.timer-banner-hint { font-size: 11px; font-weight: 600; opacity: 0.5; }
 
 /* ─── REST PICKER ──────────────────────────────────────────────────────────── */
 .rest-picker-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; align-items: flex-end; }

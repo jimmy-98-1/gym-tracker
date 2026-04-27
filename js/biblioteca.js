@@ -1,3 +1,4 @@
+// SECURITY: requireUser validates session expiry; redirects to login if invalid
 const user = requireUser('index.html');
 
 function formatTodayDate() {
@@ -5,13 +6,17 @@ function formatTodayDate() {
 }
 
 let calYear, calMonth;
+// SECURITY: module-level cache for effective routine — populated async at render time, used sync in helpers
+let _libRoutine = null;
 
-function render() {
+async function render() {
   document.getElementById('week-badge').textContent = formatTodayDate();
   const now = new Date();
   if (calYear === undefined) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
 
-  const data = loadData(user);
+  // SECURITY: loadData and getEffectiveRoutine both decrypt from localStorage via session key
+  const data = await loadData(user);
+  _libRoutine = await getEffectiveRoutine(user);
   const weeks = Object.keys(data).sort().reverse();
   const stats = calcStats(data, weeks);
 
@@ -364,24 +369,26 @@ function getAllPRs(data) {
 
 function getExName(exId) {
   if (typeof CATALOG_BY_ID !== 'undefined' && CATALOG_BY_ID[exId]) return CATALOG_BY_ID[exId].name;
-  const R = getEffectiveRoutine(user);
+  // SECURITY: uses _libRoutine cached by render() — avoids re-decrypting on every call
+  const R = _libRoutine || {};
   for (const d of DAYS) {
-    const ex = (R[d].exercises || []).find(e => e.id === exId);
+    const ex = (R[d]?.exercises || []).find(e => e.id === exId);
     if (ex) return ex.name;
   }
   return exId;
 }
 
-function openDayDetail(y, m, d) {
+async function openDayDetail(y, m, d) {
   const date = new Date(y, m, d);
   const wk = getWeekKeyFromDate(date);
   const dayKey = getDayKeyFromDate(date);
-  const data = loadData(user);
+  // SECURITY: decrypt workout data and routine via session key
+  const data = await loadData(user);
   const dayData = data[wk]?.[dayKey];
 
   if (!dayData || (!hasDoneData(dayData) && !dayData._saved)) return;
 
-  const R = getEffectiveRoutine(user);
+  const R = _libRoutine || await getEffectiveRoutine(user);
   const info = R[dayKey];
   const exercises = info?.exercises || [];
   const allPRs = getAllPRs(data);
@@ -617,8 +624,9 @@ function renderMuscleVolume(data) {
 // ─── MISC ─────────────────────────────────────────────────────────────────────
 
 function logout() {
-  clearCurrentUser();
+  clearCurrentUser(); // SECURITY: removes session and AES key from sessionStorage
   window.location.href = 'index.html';
 }
 
-render();
+// SECURITY: async IIFE — ensures render() awaits decryption before any DOM writes
+render().catch(err => console.error('Biblioteca init error:', err));

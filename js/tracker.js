@@ -1,3 +1,4 @@
+// SECURITY: requireUser validates the session and its 8-hour expiry; redirects to login if invalid
 const user = requireUser('index.html');
 
 function formatTodayDate() {
@@ -20,14 +21,16 @@ const MOTIVATIONS = [
 
 function getDayMotivation(name) {
   const idx = new Date().getDate() % MOTIVATIONS.length;
-  return MOTIVATIONS[idx].replace('{name}', escapeHTML(name)); // SECURITY: escape username before HTML interpolation
+  return MOTIVATIONS[idx].replace('{name}', escapeHTML(name)); // SECURITY: escape display name before HTML interpolation
 }
+
 let currentDay = getTodayKey();
-let R = getEffectiveRoutine(user);
+// SECURITY: R is populated async in render() — never used before first await completes
+let R = {};
 
 // Per-exercise rest overrides: { exId: seconds }
 let exRestOverrides = {};
-let pickerTargetEx = null; // { id, defaultRest }
+let pickerTargetEx = null;
 
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 
@@ -38,13 +41,14 @@ function showToast(msg) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-function render() {
-  R = getEffectiveRoutine(user);
-  const data = loadData(user);
+async function render() {
+  // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
+  R = await getEffectiveRoutine(user);
+  const data = await loadData(user); // SECURITY: AES-GCM decrypted with session key
   const wk = getWeekKey();
-  if (!data[wk]) { data[wk] = {}; saveData(user, data); }
+  if (!data[wk]) { data[wk] = {}; await saveData(user, data); }
 
-  const weekNum = getWeekNumber(user);
+  const weekNum = await getWeekNumber(user);
   document.getElementById('week-badge').textContent = formatTodayDate();
 
   renderDayNav();
@@ -68,9 +72,11 @@ function renderSession(data, wk, weekNum) {
   const app = document.getElementById('app');
   const info = R[currentDay];
   const dayData = data[wk][currentDay] || {};
+  // SECURITY: getDisplayName() returns the human display name; user variable holds email (storage key)
+  const displayName = getDisplayName() || '';
 
   let html = `<div class="session-header">
-    <div class="session-day-label">${getDayMotivation(user)}</div>
+    <div class="session-day-label">${getDayMotivation(displayName)}</div>
     <div class="session-title">${escapeHTML(info.name)}</div>`; // SECURITY: info.name may be user-renamed
 
   if (info.rest) {
@@ -100,7 +106,7 @@ function renderSession(data, wk, weekNum) {
   html += `<div class="session-meta">${info.duration ?? ''} · ${exercises.length} ejercicios</div>
   <div class="progress-wrap">
     <div class="progress-track"><div class="progress-fill" style="width:${pct}%"></div></div>
-    <div class="progress-label"><span>${done} de ${exercises.length} completados</span><span>${pct}%</span></div>
+    <div class="progress-label"><span id="progress-done-label">${done} de ${exercises.length} completados</span><span>${pct}%</span></div>
   </div></div><div class="cards-wrap">`;
 
   const allDone = exercises.every(ex => isExDone(ex, dayData));
@@ -144,14 +150,15 @@ function renderExCard(ex, exData, lastSession, done) {
     const lastKg = lastSession?.[`s${i}_kg`] || '';
     const lastRep = lastSession?.[`s${i}_rep`] || '';
     const refText = lastKg && lastRep ? `${lastKg}×${lastRep}` : '—';
-    rows += `<div class="series-row">
+    rows += `<div class="series-row" data-exid="${escapeHTML(ex.id)}" data-setidx="${i}">
       <span class="s-num">${i + 1}</span>
       <span class="s-ref ${refText === '—' ? 'empty' : ''}">${refText}</span>
-      <input class="s-input s-kg${isDone ? ' completed' : ''}" type="text" inputmode="decimal" placeholder="kg" value="${kg}"
+      <input class="s-input s-kg${isDone ? ' completed' : ''}" type="text" inputmode="decimal" placeholder="kg" value="${escapeHTML(String(kg))}"
+        onclick="showPlateCalc(this)"
         onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${isDone ? 'readonly' : ''}/>
-      <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${rep}"
+      <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${escapeHTML(String(rep))}"
         onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${isDone ? 'readonly' : ''}/>
-      <input class="s-input s-rpe${isDone ? ' completed' : ''}" type="number" inputmode="numeric" min="1" max="10" placeholder="RPE" value="${rpe}"
+      <input class="s-input s-rpe${isDone ? ' completed' : ''}" type="number" inputmode="numeric" min="1" max="10" placeholder="RPE" value="${escapeHTML(String(rpe))}"
         onchange="updateSerie('${ex.id}',${i},'rpe',this.value)" ${!isDone ? 'disabled' : ''}/>
       <div class="s-check${isDone ? ' done' : ''}" onclick="toggleSerie('${ex.id}',${i})">
         <svg width="13" height="13" viewBox="0 0 13 13">
@@ -191,19 +198,21 @@ function renderExCard(ex, exData, lastSession, done) {
   </div>`;
 }
 
-function updateSerie(exId, setIdx, field, value) {
-  const data = loadData(user);
+async function updateSerie(exId, setIdx, field, value) {
+  const data = await loadData(user); // SECURITY: decrypt before mutation
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   if (!data[wk][currentDay][exId]) data[wk][currentDay][exId] = {};
   if (field === 'kg') value = value.replace(',', '.');
   data[wk][currentDay][exId][`s${setIdx}_${field}`] = value;
-  saveData(user, data);
+  await saveData(user, data); // SECURITY: encrypt before writing to localStorage
 }
 
-function toggleSerie(exId, setIdx) {
-  const data = loadData(user);
+let pendingFlash = null;
+
+async function toggleSerie(exId, setIdx) {
+  const data = await loadData(user);
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
@@ -211,42 +220,49 @@ function toggleSerie(exId, setIdx) {
   const exData = data[wk][currentDay][exId];
   const wasDone = exData[`s${setIdx}_done`];
   exData[`s${setIdx}_done`] = !wasDone;
-  saveData(user, data);
+  await saveData(user, data);
 
   if (!wasDone) {
+    const currentKg = parseFloat(exData[`s${setIdx}_kg`]) || 0;
+    const prDetected = currentKg > 0 && detectPR(exId, currentKg, data, wk);
+    pendingFlash = { exId, setIdx, isPR: prDetected };
+
     const ex = R[currentDay]?.exercises?.find(e => e.id === exId);
     if (ex) {
       const secs = exRestOverrides[exId] !== undefined ? exRestOverrides[exId] : parseRestSeconds(ex.rest);
       startTimer(secs, ex.name);
     }
+  } else {
+    pendingFlash = null;
   }
 
-  render();
+  await render();
+  applyFlashAnimation();
 }
 
-function saveSession() {
-  const data = loadData(user);
+async function saveSession() {
+  const data = await loadData(user);
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   data[wk][currentDay]._saved = true;
-  saveData(user, data);
+  await saveData(user, data);
   showToast('Sesión guardada 💪');
-  render();
+  await render();
 }
 
-function unlockSession() {
-  const data = loadData(user);
+async function unlockSession() {
+  const data = await loadData(user);
   const wk = getWeekKey();
   if (data[wk]?.[currentDay]) {
     delete data[wk][currentDay]._saved;
-    saveData(user, data);
-    render();
+    await saveData(user, data);
+    await render();
   }
 }
 
-function saveNotes(value) {
-  const data = loadData(user);
+async function saveNotes(value) {
+  const data = await loadData(user);
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
@@ -255,7 +271,7 @@ function saveNotes(value) {
   } else {
     delete data[wk][currentDay]._notes;
   }
-  saveData(user, data);
+  await saveData(user, data);
 }
 
 // ─── REST PICKER ──────────────────────────────────────────────────────────────
@@ -308,12 +324,54 @@ function setRestOverride(secs) {
   render();
 }
 
-// ─── TIMER ────────────────────────────────────────────────────────────────────
+// ─── TIMER (Floating FAB + Web Worker) ────────────────────────────────────────
 
-let timerInterval = null;
-let timerSeconds = 0;
+let timerWorker = null;
 let timerTotal = 0;
 let timerPaused = false;
+let timerCurrentSecs = 0;
+let _beepedAt = new Set();
+let _audioCtx = null;
+let timerFallbackInterval = null;
+
+function initTimerWorker() {
+  if (timerWorker) return;
+  try {
+    timerWorker = new Worker('js/timer-worker.js');
+    timerWorker.onmessage = function(e) {
+      const { type, seconds } = e.data;
+      if (type === 'tick') {
+        timerCurrentSecs = seconds;
+        updateTimerDisplay(seconds);
+        saveTimerState();
+        if ([3, 2, 1].includes(seconds) && !_beepedAt.has(seconds)) {
+          _beepedAt.add(seconds);
+          playBeep();
+        }
+      } else if (type === 'done') {
+        timerFinished();
+      }
+    };
+  } catch(e) {
+    console.warn('Web Worker unavailable, using setInterval fallback');
+  }
+}
+
+function playBeep() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.25, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.25);
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime + 0.25);
+  } catch(e) {}
+}
 
 function parseRestSeconds(restStr) {
   const segMatch = restStr.match(/(\d+)\s*seg/);
@@ -333,56 +391,264 @@ function formatSeconds(secs) {
 }
 
 function startTimer(secsOrStr, exName) {
-  clearInterval(timerInterval);
-  timerSeconds = typeof secsOrStr === 'number' ? secsOrStr : parseRestSeconds(secsOrStr);
-  timerTotal = timerSeconds;
+  const secs = typeof secsOrStr === 'number' ? secsOrStr : parseRestSeconds(secsOrStr);
+  timerTotal = secs;
   timerPaused = false;
+  timerCurrentSecs = secs;
+  _beepedAt.clear();
 
-  document.getElementById('timer-popup-ex').textContent = exName ?? 'Descanso';
-  document.getElementById('timer-pause-btn').textContent = '⏸ Pausar';
-  const overlay = document.getElementById('timer-popup-overlay');
-  overlay.classList.remove('done');
-  overlay.classList.add('open');
-  updateTimerDisplay();
+  const fab = document.getElementById('timer-fab');
+  document.getElementById('timer-fab-ex').textContent = exName ?? 'Descanso';
+  document.getElementById('timer-fab-pause-btn').textContent = '⏸';
+  fab.classList.remove('done');
+  fab.classList.add('open');
+  updateTimerDisplay(secs);
+  saveTimerState(exName, secs, false);
 
-  timerInterval = setInterval(tickTimer, 1000);
-}
-
-function tickTimer() {
-  if (timerPaused) return;
-  timerSeconds--;
-  updateTimerDisplay();
-  if (timerSeconds <= 0) {
-    clearInterval(timerInterval);
-    timerFinished();
+  initTimerWorker();
+  if (timerWorker) {
+    timerWorker.postMessage({ type: 'start', data: { seconds: secs } });
+  } else {
+    clearInterval(timerFallbackInterval);
+    let remaining = secs;
+    timerFallbackInterval = setInterval(() => {
+      if (timerPaused) return;
+      remaining--;
+      timerCurrentSecs = remaining;
+      updateTimerDisplay(remaining);
+      saveTimerState();
+      if ([3, 2, 1].includes(remaining) && !_beepedAt.has(remaining)) {
+        _beepedAt.add(remaining);
+        playBeep();
+      }
+      if (remaining <= 0) { clearInterval(timerFallbackInterval); timerFinished(); }
+    }, 1000);
   }
 }
 
-function updateTimerDisplay() {
-  const m = Math.floor(Math.abs(timerSeconds) / 60);
-  const s = Math.abs(timerSeconds) % 60;
-  document.getElementById('timer-popup-time').textContent = `${m}:${s.toString().padStart(2, '0')}`;
-  const pct = timerTotal > 0 ? Math.max(0, timerSeconds / timerTotal) * 100 : 0;
-  document.getElementById('timer-popup-fill').style.width = pct + '%';
+function updateTimerDisplay(secs) {
+  const m = Math.floor(Math.abs(secs) / 60);
+  const s = Math.abs(secs) % 60;
+  document.getElementById('timer-fab-time').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+  const pct = timerTotal > 0 ? Math.max(0, secs / timerTotal) * 100 : 0;
+  document.getElementById('timer-fab-fill').style.width = pct + '%';
 }
 
 function timerFinished() {
-  const overlay = document.getElementById('timer-popup-overlay');
-  overlay.classList.add('done');
-  document.getElementById('timer-popup-time').textContent = '¡Venga! 💪';
-  document.getElementById('timer-popup-fill').style.width = '0%';
+  const fab = document.getElementById('timer-fab');
+  fab.classList.add('done');
+  document.getElementById('timer-fab-time').textContent = '¡Venga! 💪';
+  document.getElementById('timer-fab-fill').style.width = '0%';
   if (navigator.vibrate) navigator.vibrate([200, 100, 300]);
+  clearTimerState();
   setTimeout(closeTimer, 3000);
 }
 
 function toggleTimerPause() {
   timerPaused = !timerPaused;
-  document.getElementById('timer-pause-btn').textContent = timerPaused ? '▶ Reanudar' : '⏸ Pausar';
+  document.getElementById('timer-fab-pause-btn').textContent = timerPaused ? '▶' : '⏸';
+  if (timerWorker) {
+    timerWorker.postMessage({ type: timerPaused ? 'pause' : 'resume' });
+  }
+  saveTimerState(null, null, timerPaused);
+}
+
+function timerAdjust(delta) {
+  if (timerWorker) {
+    timerWorker.postMessage({ type: 'adjust', data: { delta } });
+  } else {
+    timerCurrentSecs = Math.max(0, timerCurrentSecs + delta);
+    updateTimerDisplay(timerCurrentSecs);
+  }
+  timerTotal = Math.max(timerTotal, timerCurrentSecs + Math.max(0, delta));
 }
 
 function closeTimer() {
-  clearInterval(timerInterval);
-  document.getElementById('timer-popup-overlay').classList.remove('open', 'done');
+  if (timerWorker) timerWorker.postMessage({ type: 'stop' });
+  clearInterval(timerFallbackInterval);
+  document.getElementById('timer-fab').classList.remove('open', 'done');
+  clearTimerState();
+}
+
+// ─── TIMER STATE PERSISTENCE (cross-page banner) ──────────────────────────────
+
+function saveTimerState(exName, totalSecs, paused) {
+  const fab = document.getElementById('timer-fab');
+  if (!fab.classList.contains('open')) return;
+  const isPaused = paused ?? timerPaused;
+  const state = {
+    exName: exName ?? document.getElementById('timer-fab-ex').textContent,
+    endTime: isPaused ? null : Date.now() + timerCurrentSecs * 1000,
+    pausedRemaining: isPaused ? timerCurrentSecs : null,
+    totalSecs: totalSecs ?? timerTotal,
+  };
+  sessionStorage.setItem('gymTimerState', JSON.stringify(state));
+}
+
+function clearTimerState() {
+  sessionStorage.removeItem('gymTimerState');
+}
+
+// ─── PLATE CALCULATOR ─────────────────────────────────────────────────────────
+
+function calculatePlates(totalKg, barKg = 20) {
+  const perSide = (totalKg - barKg) / 2;
+  if (perSide < 0) return null;
+  const plateTypes = [20, 15, 10, 5, 2.5, 1.25];
+  const result = [];
+  let rem = perSide;
+  for (const p of plateTypes) {
+    const count = Math.floor(rem / p + 0.0001);
+    if (count > 0) { result.push({ kg: p, count }); rem -= count * p; }
+  }
+  return { perSide, plates: result };
+}
+
+let _plateDismissHandler = null;
+
+function showPlateCalc(inputEl) {
+  const val = parseFloat(String(inputEl.value).replace(',', '.'));
+  if (!val || val <= 0) { hidePlateCalc(); return; }
+
+  const result = calculatePlates(val);
+  const popover = document.getElementById('plate-popover');
+  const content = document.getElementById('plate-popover-content');
+
+  if (!result) {
+    content.innerHTML = `<div class="pc-note">Peso menor que la barra (20 kg)</div>`;
+  } else {
+    let html = `<div class="pc-title">${val} kg — Distribución</div>`;
+    html += `<div class="pc-row"><span class="pc-label">Barra</span><span class="pc-val">20 kg</span></div>`;
+    if (result.plates.length > 0) {
+      html += `<div class="pc-divider"></div><div class="pc-label-sm">Cada lado:</div>`;
+      result.plates.forEach(p => {
+        html += `<div class="pc-row"><span class="pc-label">${p.count} × ${p.kg} kg</span><span class="pc-val">${(p.count * p.kg).toFixed(2).replace(/\.?0+$/, '')} kg</span></div>`;
+      });
+    } else {
+      html += `<div class="pc-note">Solo la barra</div>`;
+    }
+    content.innerHTML = html;
+  }
+
+  const rect = inputEl.getBoundingClientRect();
+  const popW = 200;
+  let left = rect.left;
+  if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
+  popover.style.left = left + 'px';
+  popover.style.top = (rect.bottom + window.scrollY + 8) + 'px';
+  popover.classList.add('open');
+
+  if (_plateDismissHandler) document.removeEventListener('click', _plateDismissHandler);
+  _plateDismissHandler = function(e) {
+    if (!e.target.closest('#plate-popover') && !e.target.classList.contains('s-kg')) {
+      hidePlateCalc();
+    }
+  };
+  setTimeout(() => document.addEventListener('click', _plateDismissHandler), 0);
+}
+
+function hidePlateCalc() {
+  document.getElementById('plate-popover').classList.remove('open');
+  if (_plateDismissHandler) {
+    document.removeEventListener('click', _plateDismissHandler);
+    _plateDismissHandler = null;
+  }
+}
+
+// ─── PR DETECTION ─────────────────────────────────────────────────────────────
+
+function detectPR(exId, currentKg, data, currentWk) {
+  let bestKg = 0;
+  const weeks = Object.keys(data).sort();
+  for (const wk of weeks) {
+    for (const day of DAYS) {
+      if (wk === currentWk && day === currentDay) continue;
+      const exData = data[wk]?.[day]?.[exId];
+      if (!exData) continue;
+      for (let i = 0; i < 20; i++) {
+        if (exData[`s${i}_done`] === undefined) break;
+        if (exData[`s${i}_done`]) {
+          const kg = parseFloat(exData[`s${i}_kg`]) || 0;
+          if (kg > bestKg) bestKg = kg;
+        }
+      }
+    }
+  }
+  return bestKg > 0 && currentKg > bestKg;
+}
+
+// ─── SET ANIMATION + CONFETTI ─────────────────────────────────────────────────
+
+function applyFlashAnimation() {
+  if (!pendingFlash) return;
+  const { exId, setIdx, isPR } = pendingFlash;
+  pendingFlash = null;
+
+  const row = document.querySelector(`.series-row[data-exid="${CSS.escape(exId)}"][data-setidx="${setIdx}"]`);
+  if (row) {
+    row.classList.add('flash-green');
+    setTimeout(() => row.classList.remove('flash-green'), 900);
+    if (isPR) {
+      showToast('¡Nuevo récord personal! 🏆');
+      launchConfetti(row);
+    }
+  }
+
+  const label = document.getElementById('progress-done-label');
+  if (label) {
+    label.classList.add('bounce-spring');
+    setTimeout(() => label.classList.remove('bounce-spring'), 600);
+  }
+}
+
+function launchConfetti(targetEl) {
+  const rect = targetEl.getBoundingClientRect();
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;height:${rect.height + 60}px;pointer-events:none;z-index:500;`;
+  canvas.width = rect.width;
+  canvas.height = rect.height + 60;
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext('2d');
+  const colors = ['#FF6B35', '#4CAF50', '#2196F3', '#FF9800', '#E91E63', '#FFD700'];
+  const particles = Array.from({ length: 35 }, () => ({
+    x: Math.random() * rect.width,
+    y: rect.height * 0.5,
+    vx: (Math.random() - 0.5) * 5,
+    vy: -Math.random() * 4 - 2,
+    color: colors[Math.floor(Math.random() * colors.length)],
+    size: Math.random() * 7 + 3,
+    rot: Math.random() * Math.PI * 2,
+    rotV: (Math.random() - 0.5) * 0.3,
+    life: 1,
+  }));
+
+  let frameId;
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    let alive = false;
+    for (const p of particles) {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.18;
+      p.life -= 0.018;
+      p.rot += p.rotV;
+      if (p.life > 0) {
+        alive = true;
+        ctx.globalAlpha = p.life;
+        ctx.fillStyle = p.color;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rot);
+        ctx.fillRect(-p.size / 2, -p.size * 0.3, p.size, p.size * 0.6);
+        ctx.restore();
+      }
+    }
+    ctx.globalAlpha = 1;
+    if (alive) frameId = requestAnimationFrame(draw);
+    else canvas.remove();
+  }
+  draw();
 }
 
 // ─── TECHNIQUE ────────────────────────────────────────────────────────────────
@@ -399,7 +665,7 @@ function closeTechnique() {
 }
 
 function logout() {
-  clearCurrentUser();
+  clearCurrentUser(); // SECURITY: clears session and AES key from sessionStorage
   window.location.href = 'index.html';
 }
 
@@ -422,12 +688,14 @@ function closeOnboarding() {
 
 let shareText = '';
 
-function openShareOverlay() {
-  const data = loadData(user);
+async function openShareOverlay() {
+  const data = await loadData(user); // SECURITY: decrypt workout data for share preview
   const wk = getWeekKey();
   const dayData = data[wk]?.[currentDay] || {};
   const info = R[currentDay];
   const exercises = info.exercises || [];
+  // SECURITY: getDisplayName() for display; user (email) is the storage key only
+  const displayName = getDisplayName() || '';
 
   let totalSeries = 0, totalVol = 0;
   const exLines = [];
@@ -457,7 +725,7 @@ function openShareOverlay() {
 
   document.getElementById('share-card-preview').innerHTML = `
     <div class="share-card-preview">
-      <div class="share-card-user">${escapeHTML(user)} · ${dateStr}</div>
+      <div class="share-card-user">${escapeHTML(displayName)} · ${dateStr}</div>
       <div class="share-card-session">${escapeHTML(info.name)}</div>
       <div class="share-card-stats">
         <div class="share-card-stat"><div class="share-card-stat-val">${totalSeries}</div><div class="share-card-stat-label">Series</div></div>
@@ -467,7 +735,7 @@ function openShareOverlay() {
       <div class="share-card-exs">${exChips}</div>
     </div>`;
 
-  shareText = `💪 ${user} · ${info.name} · ${dateStr}\n`
+  shareText = `💪 ${displayName} · ${info.name} · ${dateStr}\n`
     + `📊 ${totalSeries} series · ${volStr} levantados\n`
     + exLines.map(e => `• ${e.name}: ${e.kg}kg × ${e.rep} reps`).join('\n')
     + `\n\n🏋️ Gym Tracker`;
@@ -496,5 +764,10 @@ function copyShareText() {
     .catch(() => showToast('No se pudo copiar'));
 }
 
-render();
-checkOnboarding();
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+
+// SECURITY: async IIFE — ensures render() awaits decryption before any DOM writes
+(async () => {
+  await render();
+  checkOnboarding();
+})().catch(err => console.error('Tracker init error:', err));

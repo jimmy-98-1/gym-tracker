@@ -39,19 +39,26 @@
   </div>
 </div>
 
-<!-- Timer popup -->
-<div class="timer-popup-overlay" id="timer-popup-overlay" onclick="closeTimer()">
-  <div class="timer-popup-card" onclick="event.stopPropagation()">
-    <div class="timer-popup-ex" id="timer-popup-ex">Descanso</div>
-    <div class="timer-popup-time" id="timer-popup-time">1:30</div>
-    <div class="timer-popup-bar-wrap">
-      <div class="timer-popup-bar"><div class="timer-popup-fill" id="timer-popup-fill"></div></div>
-    </div>
-    <div class="timer-popup-actions">
-      <button class="timer-popup-btn" id="timer-pause-btn" onclick="toggleTimerPause()">⏸ Pausar</button>
-      <button class="timer-popup-btn timer-popup-btn-close" onclick="closeTimer()">✕ Cerrar</button>
+<!-- Floating Timer FAB -->
+<div class="timer-fab" id="timer-fab">
+  <div class="timer-fab-header">
+    <span class="timer-fab-ex" id="timer-fab-ex">Descanso</span>
+    <div class="timer-fab-time-row">
+      <button class="timer-fab-adj" onclick="timerAdjust(-30)">−30s</button>
+      <span class="timer-fab-time" id="timer-fab-time">1:30</span>
+      <button class="timer-fab-adj" onclick="timerAdjust(30)">+30s</button>
     </div>
   </div>
+  <div class="timer-fab-bar"><div class="timer-fab-fill" id="timer-fab-fill"></div></div>
+  <div class="timer-fab-actions">
+    <button class="timer-fab-btn" id="timer-fab-pause-btn" onclick="toggleTimerPause()">⏸</button>
+    <button class="timer-fab-btn timer-fab-close" onclick="closeTimer()">✕</button>
+  </div>
+</div>
+
+<!-- Plate Calculator Popover -->
+<div class="plate-popover" id="plate-popover">
+  <div class="plate-popover-content" id="plate-popover-content"></div>
 </div>
 
 <!-- Rest picker bottom sheet -->
@@ -118,7 +125,9 @@
   </a>
 </nav>
 
+<!-- SECURITY: auth.js before data.js — supplies session/crypto functions -->
 <script src="js/theme.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/data.js"></script>
 <script src="js/exercises.js"></script>
 <script src="js/tracker.js"></script>

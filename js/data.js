@@ -65,22 +65,25 @@ const ROUTINE = {
 
 const DAYS = ['lun','mar','mie','jue','vie','sab','dom'];
 
-// ─── USER ─────────────────────────────────────────────────────────────────────
+// ─── USER SESSION ─────────────────────────────────────────────────────────────
 
-function getStorageKey(user) {
-  return `gymtracker_v1_${user.toLowerCase().trim()}`;
+// SECURITY: centralized HTML escaping utility — prevents XSS when interpolating user data into innerHTML
+function escapeHTML(str) {
+  return String(str ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function getCurrentUser() {
-  return sessionStorage.getItem('gym_user') || null;
-}
-
-function setCurrentUser(name) {
-  sessionStorage.setItem('gym_user', name.trim());
+  // SECURITY: reads email from the validated session — returns null when session is absent or expired
+  return getSession()?.email || null;
 }
 
 function clearCurrentUser() {
-  sessionStorage.removeItem('gym_user');
+  clearSession(); // SECURITY: also removes the AES data-key from sessionStorage
 }
 
 function requireUser(redirectTo = 'index.html') {
@@ -89,27 +92,40 @@ function requireUser(redirectTo = 'index.html') {
   return user;
 }
 
-function getKnownUsers() {
-  try { return JSON.parse(localStorage.getItem('gym_users') || '[]'); } catch(e) { return []; }
+// ─── STORAGE KEYS ─────────────────────────────────────────────────────────────
+
+function getStorageKey(user) {
+  // SECURITY: v2 namespace — stores AES-GCM ciphertext; incompatible with old plaintext v1 blobs
+  return `gymtracker_v2_${user}`;
 }
 
-function registerUser(name) {
-  const users = getKnownUsers();
-  const norm = name.trim();
-  if (!users.includes(norm)) {
-    users.push(norm);
-    localStorage.setItem('gym_users', JSON.stringify(users));
+function _routineStorageKey(user) {
+  // SECURITY: v2 namespace for encrypted custom routine
+  return `gymroutine_v2_${user}`;
+}
+
+// ─── DATA (async, AES-GCM encrypted) ─────────────────────────────────────────
+
+async function loadData(user) {
+  try {
+    const raw = localStorage.getItem(getStorageKey(user));
+    if (!raw) return {};
+    // SECURITY: decrypt with per-user AES-GCM key derived from password and stored in sessionStorage
+    return await decryptJSON(raw);
+  } catch(e) {
+    console.error('loadData: decrypt failed', e);
+    return {};
   }
 }
 
-// ─── DATA ─────────────────────────────────────────────────────────────────────
-
-function loadData(user) {
-  try { return JSON.parse(localStorage.getItem(getStorageKey(user))) || {}; } catch(e) { return {}; }
-}
-
-function saveData(user, data) {
-  localStorage.setItem(getStorageKey(user), JSON.stringify(data));
+async function saveData(user, data) {
+  try {
+    // SECURITY: encrypt before writing — workout data (weights, notes, PRs) never stored in plaintext
+    const cipher = await encryptJSON(data);
+    localStorage.setItem(getStorageKey(user), cipher);
+  } catch(e) {
+    console.error('saveData: encrypt failed', e);
+  }
 }
 
 function getWeekKey() {
@@ -124,12 +140,11 @@ function getTodayKey() {
   return DAYS[d.getDay() === 0 ? 6 : d.getDay() - 1];
 }
 
-function getWeekNumber(user) {
-  const data = loadData(user);
+async function getWeekNumber(user) {
+  const data = await loadData(user);
   const wk = getWeekKey();
-  if (!data[wk]) { data[wk] = {}; saveData(user, data); }
-  const allWeeks = Object.keys(loadData(user)).sort();
-  return allWeeks.indexOf(wk) + 1;
+  if (!data[wk]) { data[wk] = {}; await saveData(user, data); }
+  return Object.keys(data).sort().indexOf(wk) + 1;
 }
 
 function getLastSessionData(exId, data) {
@@ -150,31 +165,39 @@ function isExDone(ex, dayData) {
   return true;
 }
 
-// ─── CUSTOM ROUTINE ───────────────────────────────────────────────────────────
+// ─── CUSTOM ROUTINE (async, AES-GCM encrypted) ────────────────────────────────
 
-function getCustomRoutine(user) {
-  try { return JSON.parse(localStorage.getItem(`gymroutine_v1_${user.toLowerCase().trim()}`)); } catch(e) { return null; }
+async function getCustomRoutine(user) {
+  try {
+    const raw = localStorage.getItem(_routineStorageKey(user));
+    if (!raw) return null;
+    // SECURITY: decrypt with the same session key used for workout data
+    return await decryptJSON(raw);
+  } catch(e) {
+    return null;
+  }
 }
 
-function saveCustomRoutine(user, customDays) {
-  localStorage.setItem(`gymroutine_v1_${user.toLowerCase().trim()}`, JSON.stringify(customDays));
+async function saveCustomRoutine(user, customDays) {
+  // SECURITY: routine data (exercise selection, day names) encrypted at rest
+  const cipher = await encryptJSON(customDays);
+  localStorage.setItem(_routineStorageKey(user), cipher);
 }
 
-function clearCustomRoutine(user) {
-  // "Limpiar rutina": keep rest/training config, empty all exercises
-  const current = getCustomRoutine(user);
+async function clearCustomRoutine(user) {
+  const current = await getCustomRoutine(user);
   const cleared = {};
   DAYS.forEach(d => {
     const isRest = current?.[d]?.rest ?? ROUTINE[d].rest;
-    cleared[d] = { rest: isRest, exercises: isRest ? [] : [] };
+    cleared[d] = { rest: isRest, exercises: [] };
   });
-  saveCustomRoutine(user, cleared);
+  await saveCustomRoutine(user, cleared);
 }
 
 const REST_DESC_GENERIC = 'Día de descanso. Recuperación activa o reposo total según cómo te sientas.';
 
 function getOnboardedKey(user) {
-  return `gym_onboarded_${user.toLowerCase().trim()}`;
+  return `gym_onboarded_${user}`;
 }
 
 function isOnboarded(user) {
@@ -185,18 +208,8 @@ function setOnboarded(user) {
   localStorage.setItem(getOnboardedKey(user), '1');
 }
 
-// SECURITY: centralized HTML escaping utility — prevents XSS when interpolating user data into innerHTML
-function escapeHTML(str) {
-  return String(str ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-function getEffectiveRoutine(user) {
-  const custom = getCustomRoutine(user);
+async function getEffectiveRoutine(user) {
+  const custom = await getCustomRoutine(user);
   if (!custom) return ROUTINE;
   const merged = {};
   DAYS.forEach(d => {

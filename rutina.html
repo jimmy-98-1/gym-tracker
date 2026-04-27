@@ -92,6 +92,15 @@
 
 <div class="toast" id="toast"></div>
 
+<!-- Persistent timer banner (shown when a rest timer is running in Tracker) -->
+<div class="timer-banner" id="timer-banner" style="display:none">
+  <a class="timer-banner-inner" href="tracker.html">
+    <span class="timer-banner-ex" id="timer-banner-ex">Descanso</span>
+    <span class="timer-banner-time" id="timer-banner-time">–:––</span>
+    <span class="timer-banner-hint">⏱ Volver</span>
+  </a>
+</div>
+
 <nav class="bottom-nav">
   <a class="nav-item" href="tracker.html">
     <span class="nav-icon">💪</span>
@@ -107,7 +116,37 @@
   </a>
 </nav>
 
+<script>
+(function() {
+  var banner = document.getElementById('timer-banner');
+  var elEx = document.getElementById('timer-banner-ex');
+  var elTime = document.getElementById('timer-banner-time');
+  function update() {
+    try {
+      var raw = sessionStorage.getItem('gymTimerState');
+      if (!raw) { banner.style.display = 'none'; return; }
+      var state = JSON.parse(raw);
+      var secs;
+      if (state.pausedRemaining != null) {
+        secs = state.pausedRemaining;
+      } else if (state.endTime) {
+        secs = Math.max(0, Math.ceil((state.endTime - Date.now()) / 1000));
+      } else { banner.style.display = 'none'; return; }
+      if (secs <= 0) { banner.style.display = 'none'; sessionStorage.removeItem('gymTimerState'); return; }
+      banner.style.display = 'block';
+      elEx.textContent = state.exName || 'Descanso';
+      var m = Math.floor(secs / 60), s = secs % 60;
+      elTime.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+    } catch(e) { banner.style.display = 'none'; }
+  }
+  update();
+  setInterval(update, 1000);
+})();
+</script>
+
+<!-- SECURITY: auth.js before data.js — supplies session/crypto functions -->
 <script src="js/theme.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/data.js"></script>
 <script src="js/exercises.js"></script>
 <script src="js/rutina.js"></script>
