@@ -21,8 +21,8 @@ async function render() {
 
   renderCalendar(data);
   renderSideStats(stats, data);
-  renderMuscleVolume(data);
-  renderProgression(data);
+  renderWeeklyVolumeComparison(data);
+  renderProgressionChart(data);
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
@@ -187,7 +187,6 @@ function funComparison(kg) {
 }
 
 function renderSideStats(s, data) {
-  // Circular progress: days trained this month
   const mp = calcMonthProgress(data);
   const pct = mp.total > 0 ? mp.trained / mp.total : 0;
   const r = 20, sw = 4, cx = 26, cy = 26, size = 52;
@@ -202,13 +201,8 @@ function renderSideStats(s, data) {
       fill="var(--text)" font-family="-apple-system,sans-serif">${mp.trained}/${mp.total}</text>
   </svg>`;
 
-  // Streak
   const hot = s.currentStreak >= 5;
   const streakIcon = s.currentStreak >= 7 ? '🔥' : s.currentStreak >= 5 ? '🔥' : '🏃';
-
-  // Carousel
-  const carouselItems = buildCarouselItems(s.totalKg);
-  const initText = carouselItems.length > 0 ? carouselItems[0] : `🏋️ ${s.totalKg} kg`;
 
   document.getElementById('side-stats').innerHTML = `
     <div class="sstat-row">
@@ -228,19 +222,12 @@ function renderSideStats(s, data) {
       <div class="sstat-val">${s.totalKg > 0 ? (s.totalKg >= 1000 ? (s.totalKg/1000).toFixed(1)+'t' : s.totalKg+'kg') : '—'}</div>
       <div class="sstat-label">Peso total</div>
     </div>
-    ${s.totalKg > 0 ? `<div class="sstat-card sstat-fun" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
-      <div class="sstat-fun-text">Has levantado</div>
-      <div class="sstat-fun-val" id="stat-carousel-text" style="transition:opacity 0.3s ease">${initText}</div>
-    </div>` : `<div class="sstat-card" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
+    <div class="sstat-card" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
       <div class="sstat-icon">🏆</div>
       <div class="sstat-val">${s.bestWeekSessions}</div>
       <div class="sstat-label">Mejor semana</div>
-    </div>`}
+    </div>
   `;
-
-  if (s.totalKg > 0 && carouselItems.length > 1) {
-    requestAnimationFrame(() => startCarousel(carouselItems));
-  }
 }
 
 // ─── CALENDAR ─────────────────────────────────────────────────────────────────
@@ -471,12 +458,12 @@ function handleDetailOverlayClick(e) {
   if (e.target === document.getElementById('day-detail-overlay')) closeDayDetail();
 }
 
-// ─── PROGRESIÓN ───────────────────────────────────────────────────────────────
+// ─── GRÁFICA DE PROGRESIÓN (SVG) ─────────────────────────────────────────────
 
-function renderProgression(data) {
+function renderProgressionChart(data) {
   const exerciseHistory = {};
-
   const allWeeks = Object.keys(data).sort();
+
   allWeeks.forEach(wk => {
     DAYS.forEach(day => {
       const dayData = data[wk]?.[day];
@@ -484,83 +471,85 @@ function renderProgression(data) {
       Object.entries(dayData).forEach(([exId, exData]) => {
         if (exId.startsWith('_') || typeof exData !== 'object') return;
         let maxKg = 0;
-        let maxOrm = 0;
         Object.entries(exData).forEach(([sk, sv]) => {
           if (!sk.endsWith('_done') || !sv) return;
           const idx = sk.replace('_done', '');
           const kg = parseFloat(exData[`${idx}_kg`]) || 0;
-          const rep = parseInt(exData[`${idx}_rep`]) || 0;
           if (kg > maxKg) maxKg = kg;
-          if (kg > 0 && rep > 0) {
-            const orm = kg * (1 + rep / 30);
-            if (orm > maxOrm) maxOrm = orm;
-          }
         });
         if (maxKg > 0) {
           if (!exerciseHistory[exId]) exerciseHistory[exId] = [];
-          exerciseHistory[exId].push({ wk, day, maxKg, maxOrm: Math.round(maxOrm) });
+          exerciseHistory[exId].push({ wk, day, maxKg });
         }
       });
     });
   });
 
-  const qualified = Object.entries(exerciseHistory)
-    .filter(([, hist]) => hist.length >= 2)
-    .sort(([, a], [, b]) => {
-      const lastA = a[a.length - 1].wk + a[a.length - 1].day;
-      const lastB = b[b.length - 1].wk + b[b.length - 1].day;
-      return lastB.localeCompare(lastA);
-    })
-    .slice(0, 6);
+  // Most-trained exercise (most entries)
+  const mostTrained = Object.entries(exerciseHistory)
+    .sort(([, a], [, b]) => b.length - a.length)[0];
 
-  if (qualified.length === 0) {
-    document.getElementById('prog-section').innerHTML = '';
+  if (!mostTrained || mostTrained[1].length < 2) {
+    document.getElementById('prog-section').innerHTML = `
+      <div class="prog-section-title">Tu progresión</div>
+      <div class="prog-card"><div style="text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Entrena más veces para ver tu progresión</div></div>`;
     return;
   }
 
-  const allPRs = getAllPRs(data);
-  let html = `<div class="prog-section-title">Progresión</div>`;
+  const [exId, fullHist] = mostTrained;
+  const hist = fullHist.slice(-10);
+  const exName = getExName(exId);
 
-  qualified.forEach(([exId, hist]) => {
-    const last6 = hist.slice(-6);
-    const maxVal = Math.max(...last6.map(h => h.maxKg));
-    const latest = last6[last6.length - 1];
-    const prev = last6[last6.length - 2];
-    const trendDir = latest.maxKg > prev.maxKg ? 'up' : latest.maxKg < prev.maxKg ? 'down' : 'eq';
-    const trendIcon = trendDir === 'up' ? '↑' : trendDir === 'down' ? '↓' : '–';
-    const isPR = allPRs[exId] && latest.maxOrm >= allPRs[exId];
-    const exName = getExName(exId);
+  const W = 280, H = 80, padL = 28, padR = 8, padT = 8, padB = 18;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const minKg = Math.min(...hist.map(h => h.maxKg));
+  const maxKg = Math.max(...hist.map(h => h.maxKg));
+  const range = maxKg - minKg || 1;
+  const xOf = i => padL + (hist.length > 1 ? (i / (hist.length - 1)) * plotW : plotW / 2);
+  const yOf = kg => padT + plotH - ((kg - minKg) / range) * plotH;
 
-    const barsHtml = last6.map((h, i) => {
-      const pct = maxVal > 0 ? (h.maxKg / maxVal) * 100 : 0;
-      const barH = Math.max(Math.round(pct * 0.36), 4);
-      const isLatest = i === last6.length - 1;
-      return `<div class="prog-bar-wrap">
-        <div class="prog-bar${isLatest ? ' latest' : ''}" style="height:${barH}px"></div>
-        <div class="prog-bar-label">${h.maxKg}</div>
-      </div>`;
-    }).join('');
+  const pts = hist.map((h, i) => `${xOf(i).toFixed(1)},${yOf(h.maxKg).toFixed(1)}`).join(' ');
+  const area = `${xOf(0).toFixed(1)},${(padT + plotH).toFixed(1)} ${pts} ${xOf(hist.length - 1).toFixed(1)},${(padT + plotH).toFixed(1)}`;
+  const dots = hist.map((h, i) =>
+    `<circle cx="${xOf(i).toFixed(1)}" cy="${yOf(h.maxKg).toFixed(1)}" r="${i === hist.length - 1 ? 4 : 3}" fill="var(--orange)" stroke="var(--surface)" stroke-width="1.5"/>`
+  ).join('');
+  const yLabels = [[minKg, padT + plotH], [maxKg, padT]].map(([kg, y]) =>
+    `<text x="${padL - 4}" y="${(y + 3).toFixed(0)}" text-anchor="end" font-size="8" fill="var(--text3)" font-family="-apple-system,sans-serif">${kg}</text>`
+  ).join('');
 
-    html += `<div class="prog-card">
-      <div class="prog-ex-name">${exName}</div>
-      <div class="prog-bars">${barsHtml}</div>
+  const svgHtml = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="overflow:visible;display:block">
+    <defs>
+      <linearGradient id="prog-area-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#FF6B35" stop-opacity="0.28"/>
+        <stop offset="100%" stop-color="#FF6B35" stop-opacity="0.03"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${area}" fill="url(#prog-area-grad)"/>
+    <polyline points="${pts}" fill="none" stroke="#FF6B35" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    ${dots}
+    ${yLabels}
+  </svg>`;
+
+  const latest = hist[hist.length - 1];
+  const prev = hist[hist.length - 2];
+  const trendDir = latest.maxKg > prev.maxKg ? 'up' : latest.maxKg < prev.maxKg ? 'down' : 'eq';
+  const trendIcon = { up: '↑', down: '↓', eq: '–' }[trendDir];
+
+  document.getElementById('prog-section').innerHTML = `
+    <div class="prog-section-title">Tu progresión — ${escapeHTML(exName)}</div>
+    <div class="prog-card" style="padding-bottom:14px">
+      <div style="margin-bottom:6px">${svgHtml}</div>
       <div class="prog-footer">
-        <div>
-          <span class="prog-best">${latest.maxKg} kg</span>
-          ${latest.maxOrm > 0 ? `<span class="prog-1rm"> · ~${latest.maxOrm} 1RM est.</span>` : ''}
-        </div>
+        <span style="font-size:12px;color:var(--text3)">${hist.length} registros</span>
         <div class="prog-right">
-          ${isPR ? '<span class="prog-pr">🏆 PR</span>' : ''}
+          <span class="prog-best">${latest.maxKg} kg</span>
           <span class="prog-trend ${trendDir}">${trendIcon}</span>
         </div>
       </div>
     </div>`;
-  });
-
-  document.getElementById('prog-section').innerHTML = html;
 }
 
-// ─── VOLUMEN MUSCULAR ─────────────────────────────────────────────────────────
+// ─── VOLUMEN SEMANAL COMPARADO + PRs ─────────────────────────────────────────
 
 function buildExGroupMap() {
   const map = {};
@@ -571,12 +560,9 @@ function buildExGroupMap() {
   return map;
 }
 
-function renderMuscleVolume(data) {
-  const wk = getWeekKey();
-  const weekData = data[wk] || {};
-  const groupMap = buildExGroupMap();
+function calcGroupVolumeForWeek(data, weekKey, groupMap) {
+  const weekData = data[weekKey] || {};
   const volume = {};
-
   DAYS.forEach(day => {
     const dayData = weekData[day];
     if (!dayData) return;
@@ -585,36 +571,105 @@ function renderMuscleVolume(data) {
       const group = groupMap[exId];
       if (!group) return;
       Object.entries(exData).forEach(([sk, sv]) => {
-        if (sk.endsWith('_done') && sv) volume[group] = (volume[group] || 0) + 1;
+        if (!sk.endsWith('_done') || !sv) return;
+        const idx = sk.replace('_done', '');
+        const kg = parseFloat(exData[`${idx}_kg`]) || 0;
+        const rep = parseInt(exData[`${idx}_rep`]) || 0;
+        volume[group] = (volume[group] || 0) + kg * rep;
+      });
+    });
+  });
+  return volume;
+}
+
+function findRecentPRs(data) {
+  const exHist = {};
+  const allWeeks = Object.keys(data).sort();
+  allWeeks.forEach(wk => {
+    DAYS.forEach(day => {
+      const dayData = data[wk]?.[day];
+      if (!dayData) return;
+      Object.entries(dayData).forEach(([exId, exData]) => {
+        if (exId.startsWith('_') || typeof exData !== 'object') return;
+        let maxKg = 0;
+        Object.entries(exData).forEach(([sk, sv]) => {
+          if (!sk.endsWith('_done') || !sv) return;
+          const idx = sk.replace('_done', '');
+          const kg = parseFloat(exData[`${idx}_kg`]) || 0;
+          if (kg > maxKg) maxKg = kg;
+        });
+        if (maxKg > 0) {
+          if (!exHist[exId]) exHist[exId] = [];
+          exHist[exId].push({ wk, day, maxKg });
+        }
       });
     });
   });
 
-  const entries = Object.entries(volume).sort(([,a],[,b]) => b - a);
-  if (entries.length === 0) { document.getElementById('muscle-section').innerHTML = ''; return; }
+  const prs = [];
+  Object.entries(exHist).forEach(([exId, hist]) => {
+    if (hist.length < 2) return;
+    const last = hist[hist.length - 1];
+    const prevBest = Math.max(...hist.slice(0, -1).map(h => h.maxKg));
+    if (last.maxKg > prevBest) prs.push({ exId, kg: last.maxKg, wk: last.wk });
+  });
 
-  const max = Math.max(...entries.map(([,v]) => v));
-  const COLOR_THRESHOLDS = [
-    { min: 10, color: '#E53935' },
-    { min: 6,  color: 'var(--orange)' },
-    { min: 3,  color: 'var(--gold)' },
-    { min: 0,  color: '#ccc' },
-  ];
+  prs.sort((a, b) => b.wk.localeCompare(a.wk));
+  return prs.slice(0, 3);
+}
 
-  let rows = entries.map(([group, sets]) => {
-    const pct = Math.round((sets / max) * 100);
-    const color = COLOR_THRESHOLDS.find(t => sets >= t.min)?.color || '#ccc';
-    const label = sets >= 10 ? `${sets} · alto` : sets >= 6 ? `${sets} · óptimo` : sets >= 3 ? `${sets} · bajo` : `${sets} · poco`;
-    return `<div class="muscle-row">
-      <div class="muscle-name">${group}</div>
-      <div class="muscle-bar-wrap"><div class="muscle-bar" style="width:${pct}%;background:${color}"></div></div>
-      <div class="muscle-sets">${label}</div>
-    </div>`;
-  }).join('');
+function renderWeeklyVolumeComparison(data) {
+  const wk = getWeekKey();
+  const prevD = new Date(); prevD.setDate(prevD.getDate() - 7);
+  const prevWk = getWeekKeyFromDate(prevD);
+  const groupMap = buildExGroupMap();
 
-  document.getElementById('muscle-section').innerHTML = `
-    <div class="muscle-section-title">Volumen esta semana</div>
-    <div class="muscle-card">${rows}</div>`;
+  const thisWeek = calcGroupVolumeForWeek(data, wk, groupMap);
+  const prevWeek = calcGroupVolumeForWeek(data, prevWk, groupMap);
+
+  const entries = Object.entries(thisWeek).sort(([, a], [, b]) => b - a);
+
+  let html = '';
+
+  if (entries.length > 0) {
+    html += `<div class="muscle-section-title">Volumen semanal</div><div class="muscle-card">`;
+    entries.forEach(([group, vol]) => {
+      const prev = prevWeek[group] || 0;
+      let arrow = '→', arrowClass = 'vol-eq', pctStr = '';
+      if (prev > 0) {
+        const pct = (vol - prev) / prev * 100;
+        if (Math.abs(pct) >= 1) {
+          if (pct > 0) { arrow = '↑'; arrowClass = 'vol-up'; pctStr = `+${Math.round(pct)}%`; }
+          else { arrow = '↓'; arrowClass = 'vol-down'; pctStr = `${Math.round(pct)}%`; }
+        }
+      }
+      const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : Math.round(vol) + 'kg';
+      html += `<div class="vol-row">
+        <span class="vol-group">${escapeHTML(group)}</span>
+        <span class="vol-amount">${volStr}</span>
+        <span class="vol-arrow ${arrowClass}">${arrow}${pctStr ? ' ' + pctStr : ''}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // Recent PRs
+  const recentPRs = findRecentPRs(data);
+  if (recentPRs.length > 0) {
+    html += `<div class="muscle-section-title" style="margin-top:16px">Récords recientes 🏆</div>
+      <div class="muscle-card">`;
+    recentPRs.forEach(pr => {
+      const name = getExName(pr.exId);
+      html += `<div class="vol-row">
+        <span class="vol-group" style="flex:1;font-size:13px">${escapeHTML(name)}</span>
+        <span class="vol-amount">${pr.kg} kg</span>
+        <span class="vol-arrow vol-up">↑ PR</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  document.getElementById('muscle-section').innerHTML = html || '';
 }
 
 // ─── MISC ─────────────────────────────────────────────────────────────────────

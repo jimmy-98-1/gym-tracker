@@ -23,6 +23,7 @@ let currentDay = getTodayKey();
 // SECURITY: R is populated async in render() — never used before first await completes
 let R = {};
 let _cachedData = null;
+let _editing = false;
 
 // Per-exercise rest overrides: { exId: seconds }
 let exRestOverrides = {};
@@ -132,17 +133,21 @@ function renderSession(data, wk, weekNum) {
   exercises.forEach(ex => {
     const exData = dayData[ex.id] || {};
     const lastSession = getLastSessionData(ex.id, data);
-    html += renderExCard(ex, exData, lastSession, isExDone(ex, dayData));
+    html += renderExCard(ex, exData, lastSession, isExDone(ex, dayData), isSaved, isEditing);
   });
 
   const isSaved = !!dayData._saved;
+  const isEditing = _editing;
   const notes = dayData._notes || '';
 
   let saveAreaHtml;
-  if (isSaved) {
+  if (isSaved && !isEditing) {
     saveAreaHtml = `<button class="save-btn saved" onclick="saveSession()">✓ Sesión guardada</button>
       <button class="edit-session-btn" onclick="unlockSession()">✏️ Editar sesión</button>
       ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
+  } else if (isEditing) {
+    saveAreaHtml = `<button class="save-btn" onclick="saveSession()">💾 Guardar cambios</button>
+      <button class="edit-session-btn cancel-edit-btn" onclick="cancelEdit()">✕ Cancelar edición</button>`;
   } else if (isTimerActive) {
     saveAreaHtml = `<button class="save-btn finish-btn" onclick="openWorkoutSummary()">🏁 Fin del entreno</button>
       ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
@@ -168,8 +173,9 @@ function renderSession(data, wk, weekNum) {
   app.innerHTML = html;
 }
 
-function renderExCard(ex, exData, lastSession, done) {
+function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
   if (ex.type === 'cardio') return renderCardioCard(ex, exData, done);
+  const locked = isSaved && !isEditing;
   let rows = '';
   for (let i = 0; i < ex.sets; i++) {
     const kg = exData[`s${i}_kg`] || '';
@@ -179,17 +185,21 @@ function renderExCard(ex, exData, lastSession, done) {
     const lastKg = lastSession?.[`s${i}_kg`] || '';
     const lastRep = lastSession?.[`s${i}_rep`] || '';
     const refText = lastKg && lastRep ? `${lastKg}×${lastRep}` : '—';
+    const inputRo = (locked || (isDone && !isEditing)) ? 'readonly' : '';
+    const rpeRo   = locked ? 'readonly' : '';
+    const rpeDis  = (!isDone && !isEditing) ? 'disabled' : (locked ? 'disabled' : '');
+    const checkClick = locked ? '' : `onclick="toggleSerie('${ex.id}',${i})"`;
     rows += `<div class="series-row" data-exid="${escapeHTML(ex.id)}" data-setidx="${i}">
       <span class="s-num">${i + 1}</span>
       <span class="s-ref ${refText === '—' ? 'empty' : ''}">${refText}</span>
       <input class="s-input s-kg${isDone ? ' completed' : ''}" type="text" inputmode="decimal" placeholder="kg" value="${escapeHTML(String(kg))}"
         onclick="showPlateCalc(this)"
-        oninput="updateSerie('${ex.id}',${i},'kg',this.value)" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${isDone ? 'readonly' : ''}/>
+        oninput="updateSerie('${ex.id}',${i},'kg',this.value)" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${inputRo}/>
       <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${escapeHTML(String(rep))}"
-        oninput="updateSerie('${ex.id}',${i},'rep',this.value)" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${isDone ? 'readonly' : ''}/>
+        oninput="updateSerie('${ex.id}',${i},'rep',this.value)" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${inputRo}/>
       <input class="s-input s-rpe${isDone ? ' completed' : ''}" type="number" inputmode="numeric" min="1" max="10" placeholder="RPE" value="${escapeHTML(String(rpe))}"
-        onchange="updateSerie('${ex.id}',${i},'rpe',this.value)" ${!isDone ? 'disabled' : ''}/>
-      <div class="s-check${isDone ? ' done' : ''}" onclick="toggleSerie('${ex.id}',${i})">
+        onchange="updateSerie('${ex.id}',${i},'rpe',this.value)" ${rpeDis} ${rpeRo}/>
+      <div class="s-check${isDone ? ' done' : ''}${locked ? ' s-check-locked' : ''}" ${checkClick}>
         <svg width="13" height="13" viewBox="0 0 13 13">
           <path d="M2 6.5l3.5 3.5 5.5-6" stroke="${isDone ? '#fff' : '#ccc'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
@@ -205,8 +215,8 @@ function renderExCard(ex, exData, lastSession, done) {
     <div class="ex-card-header">
       <div class="ex-name">${ex.name}</div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:6px;margin-top:1px">
-        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',-1)" aria-label="Quitar serie">−</button>
-        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',+1)" aria-label="Añadir serie">+</button>
+        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',-1)" aria-label="Quitar serie" ${locked ? 'disabled' : ''}>−</button>
+        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',+1)" aria-label="Añadir serie" ${locked ? 'disabled' : ''}>+</button>
         <button class="ex-info-btn" onclick="showTechnique('${ex.id}','${ex.name.replace(/'/g,"&#39;")}','${noteEsc}')" aria-label="Técnica">💡</button>
         ${done ? '<span class="ex-done-badge">✓</span>' : ''}
       </div>
@@ -283,24 +293,27 @@ async function toggleSerie(exId, setIdx) {
 }
 
 async function saveSession() {
+  _editing = false;
   const data = await loadDataCached(user);
   const wk = getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   data[wk][currentDay]._saved = true;
   await saveDataAndCache(user, data);
+  _cachedData = null;
   showToast('Sesión guardada 💪');
   await render();
 }
 
 async function unlockSession() {
-  const data = await loadDataCached(user);
-  const wk = getWeekKey();
-  if (data[wk]?.[currentDay]) {
-    delete data[wk][currentDay]._saved;
-    await saveDataAndCache(user, data);
-    await render();
-  }
+  _editing = true;
+  await render();
+}
+
+async function cancelEdit() {
+  _editing = false;
+  _cachedData = null;
+  await render();
 }
 
 async function saveNotes(value) {
@@ -319,6 +332,10 @@ async function saveNotes(value) {
 // ─── ADJUST SETS (Feature 2 — temporal, no persiste rutina) ──────────────────
 
 async function adjustSets(exId, delta) {
+  if (_cachedData) {
+    const wk = getWeekKey();
+    if (_cachedData[wk]?.[currentDay]?._saved && !_editing) return;
+  }
   const ex = R[currentDay]?.exercises?.find(e => e.id === exId);
   if (!ex) return;
   const current = _setsOverrides[exId] ?? ex.sets;
@@ -610,6 +627,22 @@ function initTimerWorker() {
   }
 }
 
+function generateBeep() {
+  try {
+    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.frequency.value = 880;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.4, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.3);
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime + 0.3);
+  } catch(e) {}
+}
+
 function playBeep() {
   try {
     if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -682,12 +715,32 @@ function startTimer(secsOrStr, exName) {
 function updateTimerDisplay(secs) {
   const m = Math.floor(Math.abs(secs) / 60);
   const s = Math.abs(secs) % 60;
-  document.getElementById('timer-fab-time').textContent = `${m}:${s.toString().padStart(2, '0')}`;
+  const timeEl = document.getElementById('timer-fab-time');
+  const fill = document.getElementById('timer-fab-fill');
+  timeEl.textContent = `${m}:${s.toString().padStart(2, '0')}`;
   const pct = timerTotal > 0 ? Math.max(0, secs / timerTotal) * 100 : 0;
-  document.getElementById('timer-fab-fill').style.width = pct + '%';
+  fill.style.width = pct + '%';
+
+  if (secs <= 10 && timerTotal > 0) {
+    const ratio = secs / 10;
+    if (ratio <= 0.3) {
+      fill.style.background = '#4CAF50';
+      timeEl.style.color = '#4CAF50';
+    } else if (ratio <= 0.7) {
+      fill.style.background = '#8BC34A';
+      timeEl.style.color = '#fff';
+    } else {
+      fill.style.background = '#FFD700';
+      timeEl.style.color = '#fff';
+    }
+  } else {
+    fill.style.background = '';
+    timeEl.style.color = '';
+  }
 }
 
 function timerFinished() {
+  generateBeep();
   const fab = document.getElementById('timer-fab');
   fab.classList.add('done');
   document.getElementById('timer-fab-time').textContent = '¡Venga! 💪';

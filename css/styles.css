@@ -659,3 +659,32 @@ body.dark .sets-adj-btn { background: #3A3A3C; border-color: rgba(255,255,255,0.
 .cardio-done-btn:not(.done):active { background: #E3F2FD; border-color: #1565C0; color: #1565C0; }
 body.dark .cardio-done-btn { background: #2C2C2E; color: #D1D1D6; border-color: rgba(255,255,255,0.15); }
 body.dark .cardio-done-btn.done { background: #1565C0; color: #fff; }
+
+/* ─── PICKER BUSCADOR ─────────────────────────────────────────────────────────── */
+.picker-search-row { display: flex; align-items: center; gap: 8px; background: var(--surface2); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+.picker-search-icon { font-size: 15px; flex-shrink: 0; }
+.picker-search-input { flex: 1; border: none; background: transparent; font-size: 14px; font-weight: 500; color: var(--text); outline: none; font-family: inherit; }
+.picker-search-input::placeholder { color: var(--text3); }
+.picker-no-results { text-align: center; padding: 32px 16px; font-size: 14px; color: var(--text3); }
+body.dark .picker-search-row { background: #3A3A3C; }
+body.dark .picker-search-input { color: #fff; }
+
+/* ─── CANCEL EDIT BUTTON ──────────────────────────────────────────────────────── */
+.cancel-edit-btn { background: var(--surface2); color: var(--danger); border-color: var(--danger) !important; }
+.cancel-edit-btn:hover { background: #fff0f0; }
+body.dark .cancel-edit-btn { background: #3A1A1A; color: var(--danger); }
+
+/* ─── LOCKED SERIES CHECK ─────────────────────────────────────────────────────── */
+.s-check-locked { cursor: default; opacity: 0.6; }
+.sets-adj-btn:disabled { opacity: 0.3; cursor: default; pointer-events: none; }
+
+/* ─── VOLUMEN SEMANAL COMPARADO ───────────────────────────────────────────────── */
+.vol-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 0.5px solid var(--border); }
+.vol-row:last-child { border-bottom: none; }
+.vol-group { font-size: 12px; font-weight: 600; color: var(--text); width: 110px; flex-shrink: 0; }
+.vol-amount { font-size: 13px; font-weight: 700; color: var(--text); font-family: monospace; flex: 1; text-align: right; }
+.vol-arrow { font-size: 12px; font-weight: 800; min-width: 52px; text-align: right; flex-shrink: 0; }
+.vol-up { color: #2e7d32; }
+.vol-down { color: var(--danger); }
+.vol-eq { color: var(--text3); }
+body.dark .vol-up { color: #66bb6a; }

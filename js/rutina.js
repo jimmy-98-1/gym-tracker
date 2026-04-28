@@ -5,6 +5,7 @@ let editDays = {};
 let openDay = null;
 let pickerDay = null;
 let pickerFilter = null;
+let pickerSearch = '';
 let exEditTarget = null;
 
 async function init() {
@@ -175,15 +176,25 @@ function handleExEditOverlayClick(e) {
 function openPicker(d) {
   pickerDay = d;
   pickerFilter = null;
+  pickerSearch = '';
   renderPicker();
   document.getElementById('picker-overlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('picker-search-input')?.focus(), 80);
 }
 
 function closePicker() {
   document.getElementById('picker-overlay').classList.remove('open');
   document.body.style.overflow = '';
   pickerDay = null;
+  pickerSearch = '';
+}
+
+function setPickerSearch(value) {
+  pickerSearch = value;
+  renderPicker();
+  const inp = document.getElementById('picker-search-input');
+  if (inp) { inp.focus(); inp.setSelectionRange(inp.value.length, inp.value.length); }
 }
 
 function setPickerFilter(group) {
@@ -194,28 +205,55 @@ function setPickerFilter(group) {
 function renderPicker() {
   const groups = Object.keys(EXERCISE_CATALOG);
   const currentExIds = new Set((editDays[pickerDay]?.exercises || []).map(e => e.id));
+  const searchTerm = pickerSearch.trim();
+  const normalize = str => str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-  let chipsHtml = `<button class="picker-chip${!pickerFilter ? ' active' : ''}" onclick="setPickerFilter(null)">Todos</button>`;
-  groups.forEach(g => {
-    chipsHtml += `<button class="picker-chip${pickerFilter === g ? ' active' : ''}" onclick="setPickerFilter('${g}')">${g}</button>`;
-  });
-  document.getElementById('picker-chips').innerHTML = chipsHtml;
-
-  const filteredGroups = pickerFilter ? { [pickerFilter]: EXERCISE_CATALOG[pickerFilter] } : EXERCISE_CATALOG;
-  let listHtml = '';
-  Object.entries(filteredGroups).forEach(([group, exercises]) => {
-    listHtml += `<div class="picker-group-title">${group}</div>`;
-    exercises.forEach(ex => {
-      const added = currentExIds.has(ex.id);
-      listHtml += `<div class="picker-ex-item${added ? ' added' : ''}" onclick="${added ? '' : `addExercise('${pickerDay}','${ex.id}')`}">
-        <div class="picker-ex-info">
-          <div class="picker-ex-name">${ex.name}</div>
-          <div class="picker-ex-meta">${ex.sets} series · ${ex.reps} reps · RPE ${ex.rpe}</div>
-        </div>
-        ${added ? '<span class="picker-added-badge">Añadido</span>' : '<span class="picker-add-icon">+</span>'}
-      </div>`;
+  // Build chips-wrap: always show search input, chips only when no search
+  let chipsWrapHtml = `<div class="picker-search-row">
+    <span class="picker-search-icon">🔍</span>
+    <input class="picker-search-input" id="picker-search-input" type="text" placeholder="Buscar ejercicio..."
+      value="${escapeHTML(pickerSearch)}" oninput="setPickerSearch(this.value)" autocomplete="off"/>
+  </div>`;
+  if (!searchTerm) {
+    chipsWrapHtml += `<div class="picker-chips">
+      <button class="picker-chip${!pickerFilter ? ' active' : ''}" onclick="setPickerFilter(null)">Todos</button>`;
+    groups.forEach(g => {
+      chipsWrapHtml += `<button class="picker-chip${pickerFilter === g ? ' active' : ''}" onclick="setPickerFilter('${g}')">${g}</button>`;
     });
-  });
+    chipsWrapHtml += `</div>`;
+  }
+  document.getElementById('picker-chips-wrap').innerHTML = chipsWrapHtml;
+
+  // Build list
+  const buildItem = (ex) => {
+    const added = currentExIds.has(ex.id);
+    return `<div class="picker-ex-item${added ? ' added' : ''}" onclick="${added ? '' : `addExercise('${pickerDay}','${ex.id}')`}">
+      <div class="picker-ex-info">
+        <div class="picker-ex-name">${ex.name}</div>
+        <div class="picker-ex-meta">${ex.sets} series · ${ex.reps} reps · RPE ${ex.rpe}</div>
+      </div>
+      ${added ? '<span class="picker-added-badge">Añadido</span>' : '<span class="picker-add-icon">+</span>'}
+    </div>`;
+  };
+
+  let listHtml = '';
+  if (searchTerm) {
+    let hasResults = false;
+    Object.entries(EXERCISE_CATALOG).forEach(([group, exercises]) => {
+      const matches = exercises.filter(ex => normalize(ex.name).includes(normalize(searchTerm)));
+      if (!matches.length) return;
+      hasResults = true;
+      listHtml += `<div class="picker-group-title">${group}</div>`;
+      matches.forEach(ex => { listHtml += buildItem(ex); });
+    });
+    if (!hasResults) listHtml = `<div class="picker-no-results">No se encontraron ejercicios</div>`;
+  } else {
+    const filteredGroups = pickerFilter ? { [pickerFilter]: EXERCISE_CATALOG[pickerFilter] } : EXERCISE_CATALOG;
+    Object.entries(filteredGroups).forEach(([group, exercises]) => {
+      listHtml += `<div class="picker-group-title">${group}</div>`;
+      exercises.forEach(ex => { listHtml += buildItem(ex); });
+    });
+  }
   document.getElementById('picker-list').innerHTML = listHtml;
 }
 
