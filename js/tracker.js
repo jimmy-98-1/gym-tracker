@@ -45,26 +45,32 @@ async function saveDataAndCache(user, data) {
 // ─── RENDER ───────────────────────────────────────────────────────────────────
 
 async function render() {
-  _cachedData = null;
-  // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
-  R = await getEffectiveRoutine(user);
-  // Apply in-memory sets overrides (Feature 2 — not persisted to routine)
-  Object.entries(_setsOverrides).forEach(([exId, sets]) => {
-    DAYS.forEach(d => {
-      const ex = R[d]?.exercises?.find(e => e.id === exId);
-      if (ex) ex.sets = sets;
+  try {
+    _cachedData = null;
+    // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
+    R = await getEffectiveRoutine(user);
+    // Apply in-memory sets overrides (Feature 2 — not persisted to routine)
+    Object.entries(_setsOverrides).forEach(([exId, sets]) => {
+      DAYS.forEach(d => {
+        const ex = R[d]?.exercises?.find(e => e.id === exId);
+        if (ex) ex.sets = sets;
+      });
     });
-  });
-  const data = await loadDataCached(user); // SECURITY: AES-GCM decrypted with session key
-  const wk = getWeekKey();
-  if (!data[wk]) { data[wk] = {}; await saveDataAndCache(user, data); }
+    const data = await loadDataCached(user); // SECURITY: AES-GCM decrypted with session key
+    const wk = getWeekKey();
+    if (!data[wk]) { data[wk] = {}; await saveDataAndCache(user, data); }
 
-  const weekNum = await getWeekNumber(user);
-  document.getElementById('week-badge').textContent = formatTodayDate();
+    const weekNum = await getWeekNumber(user);
+    document.getElementById('week-badge').textContent = formatTodayDate();
 
-  renderDayNav();
-  renderSession(data, wk, weekNum);
-  if (sessionStarted()) _tickSessionTimer();
+    renderDayNav();
+    renderSession(data, wk, weekNum);
+    if (sessionStarted()) _tickSessionTimer();
+  } catch (err) {
+    console.error('render() error:', err);
+    const app = document.getElementById('app');
+    if (app) app.innerHTML = `<div style="padding:32px 20px;text-align:center;color:var(--text3)">Error al cargar la sesión. Recarga la página.</div>`;
+  }
 }
 
 function renderDayNav() {
@@ -130,15 +136,15 @@ function renderSession(data, wk, weekNum) {
     </div><br>`;
   }
 
+  const isSaved = !!dayData._saved;
+  const isEditing = _editing;
+  const notes = dayData._notes || '';
+
   exercises.forEach(ex => {
     const exData = dayData[ex.id] || {};
     const lastSession = getLastSessionData(ex.id, data);
     html += renderExCard(ex, exData, lastSession, isExDone(ex, dayData), isSaved, isEditing);
   });
-
-  const isSaved = !!dayData._saved;
-  const isEditing = _editing;
-  const notes = dayData._notes || '';
 
   let saveAreaHtml;
   if (isSaved && !isEditing) {
