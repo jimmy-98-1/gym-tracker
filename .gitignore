@@ -1,0 +1,32 @@
+.claude/ 
+# IDEs y Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Dependencias
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Variables de entorno
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Temporales
+*.log
+.cache/

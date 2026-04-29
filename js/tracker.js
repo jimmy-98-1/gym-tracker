@@ -49,13 +49,6 @@ async function render() {
     _cachedData = null;
     // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
     R = await getEffectiveRoutine(user);
-    // Apply in-memory sets overrides (Feature 2 — not persisted to routine)
-    Object.entries(_setsOverrides).forEach(([exId, sets]) => {
-      DAYS.forEach(d => {
-        const ex = R[d]?.exercises?.find(e => e.id === exId);
-        if (ex) ex.sets = sets;
-      });
-    });
     const data = await loadDataCached(user); // SECURITY: AES-GCM decrypted with session key
     const wk = getWeekKey();
     if (!data[wk]) { data[wk] = {}; await saveDataAndCache(user, data); }
@@ -182,30 +175,35 @@ function renderSession(data, wk, weekNum) {
 function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
   if (ex.type === 'cardio') return renderCardioCard(ex, exData, done);
   const locked = isSaved && !isEditing;
+  const sessionActive = isSessionActive();
+  const effectiveSets = _setsOverrides[ex.id] ?? ex.sets;
   let rows = '';
-  for (let i = 0; i < ex.sets; i++) {
+  for (let i = 0; i < effectiveSets; i++) {
     const kg = exData[`s${i}_kg`] || '';
     const rep = exData[`s${i}_rep`] || '';
     const rpe = exData[`s${i}_rpe`] || '';
     const isDone = exData[`s${i}_done`] || false;
     const lastKg = lastSession?.[`s${i}_kg`] || '';
     const lastRep = lastSession?.[`s${i}_rep`] || '';
-    const refText = lastKg && lastRep ? `${lastKg}×${lastRep}` : '—';
-    const inputRo = (locked || (isDone && !isEditing)) ? 'readonly' : '';
+    const lastKgNum = parseFloat(String(lastKg).replace(',', '.')) || 0;
+    const refText = lastRep ? (lastKgNum > 0 ? `${lastKg}×${lastRep}` : `PC×${lastRep}`) : '—';
+    const inputRo = (locked || (isDone && !isEditing) || (!sessionActive && !isSaved)) ? 'readonly' : '';
+    const inputDis = (!sessionActive && !isSaved) ? 'disabled' : '';
     const rpeRo   = locked ? 'readonly' : '';
     const rpeDis  = (!isDone && !isEditing) ? 'disabled' : (locked ? 'disabled' : '');
     const checkClick = locked ? '' : `onclick="toggleSerie('${ex.id}',${i})"`;
+    const checkStyle = (!sessionActive && !isSaved) ? ' style="pointer-events:none;opacity:0.4"' : '';
     rows += `<div class="series-row" data-exid="${escapeHTML(ex.id)}" data-setidx="${i}">
       <span class="s-num">${i + 1}</span>
       <span class="s-ref ${refText === '—' ? 'empty' : ''}">${refText}</span>
       <input class="s-input s-kg${isDone ? ' completed' : ''}" type="text" inputmode="decimal" placeholder="kg" value="${escapeHTML(String(kg))}"
         onclick="showPlateCalc(this)"
-        oninput="updateSerie('${ex.id}',${i},'kg',this.value)" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${inputRo}/>
+        oninput="updateSerie('${ex.id}',${i},'kg',this.value)" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${inputRo} ${inputDis}/>
       <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${escapeHTML(String(rep))}"
-        oninput="updateSerie('${ex.id}',${i},'rep',this.value)" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${inputRo}/>
+        oninput="updateSerie('${ex.id}',${i},'rep',this.value)" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${inputRo} ${inputDis}/>
       <input class="s-input s-rpe${isDone ? ' completed' : ''}" type="number" inputmode="numeric" min="1" max="10" placeholder="RPE" value="${escapeHTML(String(rpe))}"
         onchange="updateSerie('${ex.id}',${i},'rpe',this.value)" ${rpeDis} ${rpeRo}/>
-      <div class="s-check${isDone ? ' done' : ''}${locked ? ' s-check-locked' : ''}" ${checkClick}>
+      <div class="s-check${isDone ? ' done' : ''}${locked ? ' s-check-locked' : ''}" ${checkClick}${checkStyle}>
         <svg width="13" height="13" viewBox="0 0 13 13">
           <path d="M2 6.5l3.5 3.5 5.5-6" stroke="${isDone ? '#fff' : '#ccc'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
         </svg>
@@ -217,21 +215,22 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
   const restOverride = exRestOverrides[ex.id];
   const restDisplay = restOverride !== undefined ? formatSeconds(restOverride) : ex.rest;
   const restIsCustom = restOverride !== undefined;
-  return `<div class="ex-card${done ? ' done' : ''}">
+  const cardClick = (!sessionActive && !isSaved) ? `onclick="showToast('Pulsa ▶ Iniciar entreno para empezar')"` : '';
+  return `<div class="ex-card${done ? ' done' : ''}" ${cardClick}>
     <div class="ex-card-header">
       <div class="ex-name">${ex.name}</div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:6px;margin-top:1px">
-        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',-1)" aria-label="Quitar serie" ${locked ? 'disabled' : ''}>−</button>
-        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',+1)" aria-label="Añadir serie" ${locked ? 'disabled' : ''}>+</button>
-        <button class="ex-info-btn" onclick="showTechnique('${ex.id}','${ex.name.replace(/'/g,"&#39;")}','${noteEsc}')" aria-label="Técnica">💡</button>
+        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',-1);event.stopPropagation()" aria-label="Quitar serie" ${locked ? 'disabled' : ''}>−</button>
+        <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',+1);event.stopPropagation()" aria-label="Añadir serie" ${locked ? 'disabled' : ''}>+</button>
+        <button class="ex-info-btn" onclick="showTechnique('${ex.id}','${ex.name.replace(/'/g,"&#39;")}','${noteEsc}');event.stopPropagation()" aria-label="Técnica">💡</button>
         ${done ? '<span class="ex-done-badge">✓</span>' : ''}
       </div>
     </div>
     <div class="ex-meta-chips">
-      <span class="meta-chip">🔁 ${ex.sets} series</span>
+      <span class="meta-chip">🔁 ${effectiveSets} series</span>
       <span class="meta-chip">📊 ${escapeHTML(String(ex.reps))} reps</span>
       <span class="meta-chip">🎯 RPE ${escapeHTML(String(ex.rpe))}</span>
-      <button class="meta-chip meta-chip-timer${restIsCustom ? ' custom' : ''}" data-exid="${escapeHTML(ex.id)}" data-rest="${escapeHTML(String(ex.rest))}" onclick="openRestPicker(this.dataset.exid,this.dataset.rest)">⏱ ${escapeHTML(restDisplay)} ▾</button>
+      <button class="meta-chip meta-chip-timer${restIsCustom ? ' custom' : ''}" data-exid="${escapeHTML(ex.id)}" data-rest="${escapeHTML(String(ex.rest))}" onclick="openRestPicker(this.dataset.exid,this.dataset.rest);event.stopPropagation()">⏱ ${escapeHTML(restDisplay)} ▾</button>
     </div>
     <div class="series-header">
       <span class="sh-label">#</span>
@@ -256,16 +255,27 @@ async function updateSerie(exId, setIdx, field, value) {
   await saveDataAndCache(user, data); // SECURITY: encrypt before writing to localStorage
 }
 
+function isSessionActive() {
+  const data = _cachedData;
+  const wk = getWeekKey();
+  const isSaved = !!(data?.[wk]?.[currentDay]?._saved);
+  return sessionStarted() || isSaved;
+}
+
 let pendingFlash = null;
 
 async function toggleSerie(exId, setIdx) {
+  if (!isSessionActive()) {
+    showToast('Pulsa ▶ Iniciar entreno para empezar');
+    return;
+  }
   // Flush DOM values before render() destroys the inputs (fixes mobile onchange/blur race)
   const rowEl = document.querySelector(`.series-row[data-exid="${CSS.escape(exId)}"][data-setidx="${setIdx}"]`);
   if (rowEl) {
     const kgInput  = rowEl.querySelector('.s-kg');
     const repInput = rowEl.querySelector('.s-rep');
     const rpeInput = rowEl.querySelector('.s-rpe');
-    if (kgInput  && kgInput.value.trim()  !== '') await updateSerie(exId, setIdx, 'kg',  kgInput.value.trim());
+    if (kgInput  && !kgInput.readOnly) await updateSerie(exId, setIdx, 'kg',  kgInput.value.trim());
     if (repInput && repInput.value.trim() !== '') await updateSerie(exId, setIdx, 'rep', repInput.value.trim());
     if (rpeInput && rpeInput.value.trim() !== '' && !rpeInput.disabled) await updateSerie(exId, setIdx, 'rpe', rpeInput.value.trim());
   }
@@ -415,6 +425,10 @@ async function updateCardio(exId, field, value) {
 }
 
 async function toggleCardio(exId) {
+  if (!isSessionActive()) {
+    showToast('Pulsa ▶ Iniciar entreno para empezar');
+    return;
+  }
   const cardioEl = document.querySelector(`.cardio-inputs[data-exid="${CSS.escape(exId)}"]`);
   if (cardioEl) {
     const inputs = cardioEl.querySelectorAll('.cardio-input');
@@ -497,8 +511,9 @@ function openWorkoutSummary() {
       return;
     }
     const exData = dayData[ex.id] || {};
+    const effectiveSets = _setsOverrides[ex.id] ?? ex.sets;
     let exVol = 0;
-    for (let i = 0; i < ex.sets; i++) {
+    for (let i = 0; i < effectiveSets; i++) {
       if (exData[`s${i}_done`]) {
         totalSeries++;
         const kg = parseFloat(exData[`s${i}_kg`]) || 0;
