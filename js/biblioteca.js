@@ -14,20 +14,22 @@ async function render() {
   const data = await loadData(user);
   _libRoutine = await getEffectiveRoutine(user);
   const weeks = Object.keys(data).sort().reverse();
-  const stats = calcStats(data, weeks);
+  const schedule = await loadTrainingSchedule(user);
+  const stats = calcStats(data, weeks, schedule);
 
   document.getElementById('bib-sub').textContent =
     stats.totalDays > 0 ? `${stats.totalDays} días entrenados en total` : 'Aún sin sesiones registradas';
 
   renderCalendar(data);
   renderSideStats(stats, data);
+  await renderSchedulePanel();
   renderWeeklyVolumeComparison(data);
   renderProgressionChart(data);
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
 
-function calcStats(data, weeks) {
+function calcStats(data, weeks, schedule) {
   let totalDays = 0;
   let totalSeries = 0;
   let totalKg = 0;
@@ -42,7 +44,9 @@ function calcStats(data, weeks) {
     d.setDate(d.getDate() - i);
     const wk = getWeekKeyFromDate(d);
     const dayKey = getDayKeyFromDate(d);
-    if (ROUTINE[dayKey]?.rest) continue;
+    // Use user schedule if available, otherwise fall back to base ROUTINE
+    const dayType = schedule ? (schedule[dayKey] || (ROUTINE[dayKey]?.rest ? 'rest' : 'train')) : (ROUTINE[dayKey]?.rest ? 'rest' : 'train');
+    if (dayType === 'rest') continue;
     const dayData = data[wk]?.[dayKey];
     if (dayData?._saved || hasDoneData(dayData)) {
       currentStreak++;
@@ -670,6 +674,41 @@ function renderWeeklyVolumeComparison(data) {
   }
 
   document.getElementById('muscle-section').innerHTML = html || '';
+}
+
+// ─── SCHEDULE PANEL ──────────────────────────────────────────────────────────
+
+async function renderSchedulePanel() {
+  const container = document.getElementById('schedule-section');
+  if (!container) return;
+
+  const schedule = await loadTrainingSchedule(user);
+
+  let html = `<div class="schedule-panel">
+    <div class="bib-section-title" style="margin-bottom:12px">Mi semana</div>
+    <div class="schedule-grid">`;
+
+  DAYS.forEach(d => {
+    const state = schedule[d] || (ROUTINE[d].rest ? 'rest' : 'train');
+    const isTrain = state === 'train';
+    html += `<div class="schedule-day${isTrain ? ' train' : ' rest'}" onclick="toggleScheduleDay('${d}')">
+      <div class="schedule-day-icon">${isTrain ? '💪' : '💤'}</div>
+      <div class="schedule-day-label">${ROUTINE[d].label}</div>
+    </div>`;
+  });
+
+  html += `</div>
+    <div class="schedule-hint">Tu racha solo se rompe si no entrenas un día marcado como 💪 Entreno</div>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+async function toggleScheduleDay(dayKey) {
+  const schedule = await loadTrainingSchedule(user);
+  schedule[dayKey] = schedule[dayKey] === 'rest' ? 'train' : 'rest';
+  await saveTrainingSchedule(user, schedule);
+  await renderSchedulePanel();
 }
 
 // ─── MISC ─────────────────────────────────────────────────────────────────────

@@ -209,6 +209,48 @@ function setOnboarded(user) {
   localStorage.setItem(getOnboardedKey(user), '1');
 }
 
+// ─── ROUTINE ASSIGNMENTS (async, AES-GCM encrypted) ──────────────────────────
+
+async function saveRoutineAssignments(user, assignments) {
+  try {
+    const cipher = await encryptJSON(assignments);
+    localStorage.setItem('gym_assignments_' + user, cipher);
+  } catch(e) {
+    console.error('saveRoutineAssignments: encrypt failed', e);
+  }
+}
+
+async function loadRoutineAssignments(user) {
+  try {
+    const raw = localStorage.getItem('gym_assignments_' + user);
+    if (!raw) return Object.fromEntries(DAYS.map(d => [d, null]));
+    return await decryptJSON(raw);
+  } catch(e) {
+    return Object.fromEntries(DAYS.map(d => [d, null]));
+  }
+}
+
+// ─── TRAINING SCHEDULE (async, AES-GCM encrypted) ────────────────────────────
+
+async function saveTrainingSchedule(user, schedule) {
+  try {
+    const cipher = await encryptJSON(schedule);
+    localStorage.setItem('gym_schedule_' + user, cipher);
+  } catch(e) {
+    console.error('saveTrainingSchedule: encrypt failed', e);
+  }
+}
+
+async function loadTrainingSchedule(user) {
+  try {
+    const raw = localStorage.getItem('gym_schedule_' + user);
+    if (!raw) return Object.fromEntries(DAYS.map(d => [d, ROUTINE[d].rest ? 'rest' : 'train']));
+    return await decryptJSON(raw);
+  } catch(e) {
+    return Object.fromEntries(DAYS.map(d => [d, ROUTINE[d].rest ? 'rest' : 'train']));
+  }
+}
+
 // ─── USER ROUTINES (async, AES-GCM encrypted) ─────────────────────────────────
 
 async function saveUserRoutines(user, routines) {

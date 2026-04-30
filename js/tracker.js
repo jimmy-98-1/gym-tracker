@@ -35,6 +35,8 @@ let pickerTargetEx = null;
 let _loadedRoutineId = null;
 // Cache de las rutinas del usuario para no desencriptar en cada render
 let _userRoutinesCache = null;
+// Asignaciones persistidas { lun: routineId|null, ... }
+let _assignments = {};
 
 async function getUserRoutines() {
   if (_userRoutinesCache !== null) return _userRoutinesCache;
@@ -61,13 +63,25 @@ async function render() {
     // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
     R = await getEffectiveRoutine(user);
 
-    if (_loadedRoutineId !== null) {
+    // Load persisted assignments on first render
+    if (Object.keys(_assignments).length === 0) {
+      _assignments = await loadRoutineAssignments(user);
+    }
+
+    // Session override takes priority over persisted assignment
+    const effectiveRoutineId = _loadedRoutineId ?? _assignments[currentDay] ?? null;
+    if (effectiveRoutineId !== null) {
       const routines = await getUserRoutines();
-      const routine = routines.find(r => r.id === _loadedRoutineId);
+      const routine = routines.find(r => r.id === effectiveRoutineId);
       if (routine) {
         R[currentDay] = { ...R[currentDay], exercises: routine.exercises.map(ex => ({ ...ex })), name: routine.name };
       } else {
-        _loadedRoutineId = null;
+        // Routine was deleted — clean up stale references
+        if (_loadedRoutineId === effectiveRoutineId) _loadedRoutineId = null;
+        if (_assignments[currentDay] === effectiveRoutineId) {
+          _assignments[currentDay] = null;
+          await saveRoutineAssignments(user, _assignments);
+        }
       }
     }
 
@@ -174,8 +188,10 @@ function renderSession(data, wk, weekNum) {
     saveAreaHtml = `<button class="save-btn finish-btn" onclick="openWorkoutSummary()">🏁 Fin del entreno</button>
       ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
   } else {
+    const hasAssignment = _loadedRoutineId !== null || (_assignments[currentDay] ?? null) !== null;
     saveAreaHtml = `<button class="start-entreno-btn" onclick="startSessionTimer();render()">▶ Iniciar entreno</button>
     <button class="load-routine-btn" onclick="openRoutineLoader()">📋 Cargar rutina</button>
+    ${hasAssignment ? `<button class="clear-assignment-btn" onclick="clearDayAssignment()">✕ Quitar rutina</button>` : ''}
     ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
   }
 
@@ -1160,7 +1176,9 @@ async function loadRoutineIntoDay(routineId) {
   const routine = routines ? routines.find(r => r.id === routineId) : null;
   const name = routine ? routine.name : '';
   _loadedRoutineId = routineId;
+  _assignments[currentDay] = routineId;
   _userRoutinesCache = null;
+  await saveRoutineAssignments(user, _assignments);
   closeRoutineLoader();
   await render();
   if (name) showToast(name + ' cargada ✓');
@@ -1169,6 +1187,14 @@ async function loadRoutineIntoDay(routineId) {
 function closeRoutineLoader() {
   document.getElementById('routine-loader-overlay').classList.remove('open');
   document.body.style.overflow = '';
+}
+
+async function clearDayAssignment() {
+  _assignments[currentDay] = null;
+  _loadedRoutineId = null;
+  await saveRoutineAssignments(user, _assignments);
+  await render();
+  showToast('Rutina del día restaurada');
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────

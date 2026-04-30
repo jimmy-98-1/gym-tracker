@@ -716,3 +716,22 @@ body.dark .routine-loader-card { background: #3A3A3C; }
 body.dark .routine-loader-card:hover { background: #3D2200; }
 body.dark .routine-loader-card.loaded { background: #3D2200; border-color: var(--orange); }
 body.dark .load-routine-btn { background: #2C2C2E; border-color: rgba(255,255,255,0.2); color: #D1D1D6; }
+
+/* ─── CLEAR ASSIGNMENT BUTTON ──────────────────────────────────────────────── */
+.clear-assignment-btn { width: 100%; background: none; color: var(--text3); border: 1px solid var(--border); border-radius: 14px; padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 6px; transition: all 0.15s; }
+.clear-assignment-btn:hover { background: var(--surface2); color: var(--danger); border-color: var(--danger); }
+
+/* ─── SCHEDULE PANEL ───────────────────────────────────────────────────────── */
+.schedule-section { padding: 0 16px 20px; }
+.schedule-panel { background: var(--surface); border-radius: 16px; border: 0.5px solid var(--border); padding: 16px; }
+.schedule-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-bottom: 12px; }
+.schedule-day { border-radius: 12px; padding: 8px 4px; text-align: center; cursor: pointer; border: 1.5px solid transparent; transition: all 0.18s; user-select: none; }
+.schedule-day.train { background: var(--orange-bg); border-color: var(--orange-mid); }
+.schedule-day.rest { background: var(--surface2); border-color: transparent; }
+.schedule-day:active { transform: scale(0.92); }
+.schedule-day-icon { font-size: 1.1rem; line-height: 1; margin-bottom: 4px; }
+.schedule-day-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
+.schedule-day.train .schedule-day-label { color: var(--orange); }
+.schedule-hint { font-size: 11px; color: var(--text3); line-height: 1.4; }
+body.dark .schedule-panel { background: var(--surface); }
+body.dark .schedule-day.train { background: #3D2200; border-color: var(--orange-mid); }
