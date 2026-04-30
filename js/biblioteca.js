@@ -682,7 +682,14 @@ async function renderSchedulePanel() {
   const container = document.getElementById('schedule-section');
   if (!container) return;
 
-  const schedule = await loadTrainingSchedule(user);
+  const [schedule, assignments, routines] = await Promise.all([
+    loadTrainingSchedule(user),
+    loadRoutineAssignments(user),
+    loadUserRoutines(user),
+  ]);
+
+  const routineMap = {};
+  routines.forEach(r => { routineMap[r.id] = r.name; });
 
   let html = `<div class="schedule-panel">
     <div class="bib-section-title" style="margin-bottom:12px">Mi semana</div>
@@ -691,9 +698,12 @@ async function renderSchedulePanel() {
   DAYS.forEach(d => {
     const state = schedule[d] || (ROUTINE[d].rest ? 'rest' : 'train');
     const isTrain = state === 'train';
+    const assignedId = assignments[d] ?? null;
+    const routineName = isTrain && assignedId ? (routineMap[assignedId] || null) : null;
     html += `<div class="schedule-day${isTrain ? ' train' : ' rest'}" onclick="toggleScheduleDay('${d}')">
       <div class="schedule-day-icon">${isTrain ? '💪' : '💤'}</div>
       <div class="schedule-day-label">${ROUTINE[d].label}</div>
+      ${routineName ? `<div class="schedule-day-routine">${escapeHTML(routineName)}</div>` : ''}
     </div>`;
   });
 

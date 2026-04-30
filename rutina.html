@@ -25,17 +25,18 @@
 </div>
 
 <div class="rut-header">
-  <div class="rut-title">Personaliza tu semana</div>
-  <div class="rut-sub">Toca un día para editar sus ejercicios</div>
+  <div class="rut-title">Mi Rutina</div>
+  <div class="rut-sub">Gestiona tus rutinas y configura tu semana</div>
 </div>
-
-<div class="rut-container" id="rutina-container"></div>
 
 <div id="user-routines-container"></div>
 
-<div class="rut-actions">
-  <button class="save-btn" onclick="saveRoutine()">Guardar rutina</button>
-  <button class="rut-clear-btn" onclick="confirmClear()">Limpiar rutina</button>
+<div id="weekly-config-section">
+  <div class="rut-container" id="rutina-container"></div>
+  <div class="rut-actions" id="weekly-config-actions">
+    <button class="save-btn" onclick="saveRoutine()">Guardar rutina</button>
+    <button class="rut-clear-btn" onclick="confirmClear()">Limpiar rutina</button>
+  </div>
 </div>
 
 <!-- Exercise Picker Overlay -->

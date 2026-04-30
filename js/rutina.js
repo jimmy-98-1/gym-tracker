@@ -11,6 +11,7 @@ let userRoutines = [];
 let openRoutineId = null;
 let routinePickerDay = null;
 let exEditRoutineTarget = null;
+let weeklyConfigOpen = false;
 
 async function init() {
   document.getElementById('week-badge').textContent = formatTodayDate();
@@ -28,8 +29,32 @@ async function init() {
   renderPage();
 }
 
+function toggleWeeklyConfig() {
+  weeklyConfigOpen = !weeklyConfigOpen;
+  renderPage();
+}
+
 function renderPage() {
   const container = document.getElementById('rutina-container');
+  const section = document.getElementById('weekly-config-section');
+  const actionsEl = document.getElementById('weekly-config-actions');
+
+  // Collapsible header injected before the days container
+  if (section) {
+    let headerEl = document.getElementById('weekly-config-header');
+    if (!headerEl) {
+      headerEl = document.createElement('div');
+      headerEl.id = 'weekly-config-header';
+      headerEl.className = 'weekly-config-header';
+      headerEl.onclick = toggleWeeklyConfig;
+      section.insertBefore(headerEl, container);
+    }
+    headerEl.innerHTML = `<div class="weekly-config-title">Configuración semanal <span class="rut-chevron">${weeklyConfigOpen ? '▲' : '▼'}</span></div>
+      <div class="weekly-config-sub">Personaliza los días y ejercicios de tu semana</div>`;
+    container.style.display = weeklyConfigOpen ? '' : 'none';
+    if (actionsEl) actionsEl.style.display = weeklyConfigOpen ? '' : 'none';
+  }
+
   let html = '';
 
   DAYS.forEach(d => {

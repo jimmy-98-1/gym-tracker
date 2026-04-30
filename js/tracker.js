@@ -369,6 +369,7 @@ async function unlockSession() {
 async function cancelEdit() {
   _editing = false;
   _cachedData = null;
+  _setsOverrides = {};
   await render();
 }
 
@@ -1192,6 +1193,7 @@ function closeRoutineLoader() {
 async function clearDayAssignment() {
   _assignments[currentDay] = null;
   _loadedRoutineId = null;
+  _setsOverrides = {};
   await saveRoutineAssignments(user, _assignments);
   await render();
   showToast('Rutina del día restaurada');

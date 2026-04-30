@@ -733,5 +733,14 @@ body.dark .load-routine-btn { background: #2C2C2E; border-color: rgba(255,255,25
 .schedule-day-label { font-size: 9px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 0.5px; }
 .schedule-day.train .schedule-day-label { color: var(--orange); }
 .schedule-hint { font-size: 11px; color: var(--text3); line-height: 1.4; }
+.schedule-day-routine { font-size: 8px; color: var(--orange); font-weight: 600; text-align: center; margin-top: 2px; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.dark .schedule-panel { background: var(--surface); }
 body.dark .schedule-day.train { background: #3D2200; border-color: var(--orange-mid); }
+
+/* ─── WEEKLY CONFIG SECTION ──────────────────────────────────────────────── */
+#weekly-config-section { padding: 0 16px; }
+.weekly-config-header { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 8px; cursor: pointer; user-select: none; }
+.weekly-config-title { font-size: 17px; font-weight: 700; color: var(--text); display: flex; align-items: center; justify-content: space-between; }
+.weekly-config-sub { font-size: 13px; color: var(--text2); margin-top: 3px; }
+.user-routines-title { font-size: 22px; font-weight: 800; color: var(--text); }
+body.dark .weekly-config-header { background: var(--surface); border-color: var(--border); }
