@@ -688,3 +688,31 @@ body.dark .cancel-edit-btn { background: #3A1A1A; color: var(--danger); }
 .vol-down { color: var(--danger); }
 .vol-eq { color: var(--text3); }
 body.dark .vol-up { color: #66bb6a; }
+body.dark .vol-down { color: var(--danger); }
+body.dark .vol-eq { color: var(--text3); }
+
+/* ─── MIS RUTINAS ──────────────────────────────────────────────────────────── */
+#user-routines-container { padding: 0 16px; }
+.user-routines-section { margin-top: 24px; padding-top: 20px; border-top: 0.5px solid var(--border); }
+.user-routines-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.user-routines-title { font-size: 22px; font-weight: 800; color: var(--text); }
+.new-routine-btn { background: var(--bg); border: 1.5px dashed var(--border2); border-radius: 12px; padding: 8px 16px; font-size: 13px; font-weight: 700; color: var(--text2); cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+.new-routine-btn:hover { background: var(--orange-bg); border-color: var(--orange); color: var(--orange); }
+.routine-count-label { font-size: 12px; font-weight: 600; color: var(--text3); margin-top: 1px; }
+.user-routines-empty { padding: 20px 0; text-align: center; }
+body.dark .new-routine-btn { background: #2C2C2E; border-color: rgba(255,255,255,0.2); color: #D1D1D6; }
+
+/* ─── ROUTINE LOADER MODAL ─────────────────────────────────────────────────── */
+.load-routine-btn { width: 100%; background: var(--surface2); color: var(--text2); border: 1px solid var(--border2); border-radius: 14px; padding: 13px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; transition: all 0.15s; }
+.load-routine-btn:hover { background: var(--orange-bg); border-color: var(--orange); color: var(--orange); }
+.load-routine-btn:active { opacity: 0.8; }
+.routine-loader-card { background: var(--surface2); border-radius: 14px; padding: 14px 16px; margin-bottom: 8px; cursor: pointer; border: 1.5px solid transparent; transition: all 0.15s; }
+.routine-loader-card:hover { background: var(--orange-bg); border-color: var(--orange-mid); }
+.routine-loader-card.loaded { border-color: var(--orange); background: var(--orange-bg); }
+.routine-loader-card-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.routine-loader-card-meta { font-size: 12px; color: var(--text3); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.routine-loaded-badge { font-size: 10px; font-weight: 700; background: var(--orange); color: #fff; padding: 3px 8px; border-radius: 8px; white-space: nowrap; flex-shrink: 0; }
+body.dark .routine-loader-card { background: #3A3A3C; }
+body.dark .routine-loader-card:hover { background: #3D2200; }
+body.dark .routine-loader-card.loaded { background: #3D2200; border-color: var(--orange); }
+body.dark .load-routine-btn { background: #2C2C2E; border-color: rgba(255,255,255,0.2); color: #D1D1D6; }

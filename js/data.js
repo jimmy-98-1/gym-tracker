@@ -209,6 +209,27 @@ function setOnboarded(user) {
   localStorage.setItem(getOnboardedKey(user), '1');
 }
 
+// ─── USER ROUTINES (async, AES-GCM encrypted) ─────────────────────────────────
+
+async function saveUserRoutines(user, routines) {
+  try {
+    const cipher = await encryptJSON(routines);
+    localStorage.setItem('gym_routines_' + user, cipher);
+  } catch(e) {
+    console.error('saveUserRoutines: encrypt failed', e);
+  }
+}
+
+async function loadUserRoutines(user) {
+  try {
+    const raw = localStorage.getItem('gym_routines_' + user);
+    if (!raw) return [];
+    return await decryptJSON(raw);
+  } catch(e) {
+    return [];
+  }
+}
+
 async function getEffectiveRoutine(user) {
   const custom = await getCustomRoutine(user);
   if (!custom) return ROUTINE;

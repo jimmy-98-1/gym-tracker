@@ -31,6 +31,17 @@ let exRestOverrides = {};
 let _setsOverrides = {};
 let pickerTargetEx = null;
 
+// Id de la rutina de usuario cargada en el día actual (temporal, se borra al cambiar de día)
+let _loadedRoutineId = null;
+// Cache de las rutinas del usuario para no desencriptar en cada render
+let _userRoutinesCache = null;
+
+async function getUserRoutines() {
+  if (_userRoutinesCache !== null) return _userRoutinesCache;
+  _userRoutinesCache = await loadUserRoutines(user);
+  return _userRoutinesCache;
+}
+
 async function loadDataCached(user) {
   if (_cachedData !== null) return _cachedData;
   _cachedData = await loadData(user);
@@ -49,6 +60,17 @@ async function render() {
     _cachedData = null;
     // SECURITY: getEffectiveRoutine decrypts custom routine from localStorage via session key
     R = await getEffectiveRoutine(user);
+
+    if (_loadedRoutineId !== null) {
+      const routines = await getUserRoutines();
+      const routine = routines.find(r => r.id === _loadedRoutineId);
+      if (routine) {
+        R[currentDay] = { ...R[currentDay], exercises: routine.exercises.map(ex => ({ ...ex })), name: routine.name };
+      } else {
+        _loadedRoutineId = null;
+      }
+    }
+
     const data = await loadDataCached(user); // SECURITY: AES-GCM decrypted with session key
     const wk = getWeekKey();
     if (!data[wk]) { data[wk] = {}; await saveDataAndCache(user, data); }
@@ -74,7 +96,7 @@ function renderDayNav() {
     const info = R[d];
     btn.className = 'day-pill' + (d === currentDay ? ' active' : info.rest ? ' rest-day' : ' inactive');
     btn.textContent = info.label;
-    btn.onclick = () => { currentDay = d; exRestOverrides = {}; _setsOverrides = {}; render(); };
+    btn.onclick = () => { currentDay = d; exRestOverrides = {}; _setsOverrides = {}; _loadedRoutineId = null; render(); };
     nav.appendChild(btn);
   });
 }
@@ -107,6 +129,7 @@ function renderSession(data, wk, weekNum) {
       <div class="rest-icon">📋</div>
       <div class="rest-title">Sin ejercicios</div>
       <div class="rest-desc">Ve a <a href="rutina.html" style="color:#111;font-weight:700">Rutina</a> para añadir ejercicios a este día.</div>
+      <button class="load-routine-btn" onclick="openRoutineLoader()" style="margin-top:16px">📋 Cargar rutina</button>
     </div></div>`;
     app.innerHTML = html;
     return;
@@ -152,6 +175,7 @@ function renderSession(data, wk, weekNum) {
       ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
   } else {
     saveAreaHtml = `<button class="start-entreno-btn" onclick="startSessionTimer();render()">▶ Iniciar entreno</button>
+    <button class="load-routine-btn" onclick="openRoutineLoader()">📋 Cargar rutina</button>
     ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
   }
 
@@ -1089,6 +1113,62 @@ function copyShareText() {
   navigator.clipboard?.writeText(shareText)
     .then(() => showToast('Copiado al portapapeles 📋'))
     .catch(() => showToast('No se pudo copiar'));
+}
+
+// ─── ROUTINE LOADER ───────────────────────────────────────────────────────────
+
+async function openRoutineLoader() {
+  const routines = await getUserRoutines();
+  if (!routines || routines.length === 0) {
+    showToast('Crea rutinas en la página Rutina primero');
+    return;
+  }
+  renderRoutineLoaderModal(routines);
+  document.getElementById('routine-loader-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function renderRoutineLoaderModal(routines) {
+  const sheet = document.getElementById('routine-loader-sheet');
+  let html = `<div class="picker-header">
+    <span class="picker-title">Selecciona una rutina</span>
+    <button class="picker-close" onclick="closeRoutineLoader()">✕</button>
+  </div>
+  <div style="padding:8px 16px 32px;overflow-y:auto;flex:1">`;
+
+  routines.forEach(r => {
+    const isLoaded = _loadedRoutineId === r.id;
+    const exCount = r.exercises.length;
+    const previewNames = r.exercises.slice(0, 3).map(e => escapeHTML(e.name)).join(' · ');
+    const countStr = exCount + ' ejercicio' + (exCount !== 1 ? 's' : '');
+    const meta = exCount === 0 ? countStr : countStr + ' · ' + previewNames;
+    html += `<div class="routine-loader-card${isLoaded ? ' loaded' : ''}" onclick="loadRoutineIntoDay('${r.id}')">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div class="routine-loader-card-name">${escapeHTML(r.name)}</div>
+        ${isLoaded ? '<span class="routine-loaded-badge">Cargada ✓</span>' : ''}
+      </div>
+      <div class="routine-loader-card-meta">${meta}</div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  sheet.innerHTML = html;
+}
+
+async function loadRoutineIntoDay(routineId) {
+  const routines = await getUserRoutines();
+  const routine = routines ? routines.find(r => r.id === routineId) : null;
+  const name = routine ? routine.name : '';
+  _loadedRoutineId = routineId;
+  _userRoutinesCache = null;
+  closeRoutineLoader();
+  await render();
+  if (name) showToast(name + ' cargada ✓');
+}
+
+function closeRoutineLoader() {
+  document.getElementById('routine-loader-overlay').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────

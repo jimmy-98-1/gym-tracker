@@ -7,6 +7,10 @@ let pickerDay = null;
 let pickerFilter = null;
 let pickerSearch = '';
 let exEditTarget = null;
+let userRoutines = [];
+let openRoutineId = null;
+let routinePickerDay = null;
+let exEditRoutineTarget = null;
 
 async function init() {
   document.getElementById('week-badge').textContent = formatTodayDate();
@@ -20,6 +24,7 @@ async function init() {
       exercises: (info.exercises || []).map(ex => ({ ...ex })),
     };
   });
+  userRoutines = await loadUserRoutines(user);
   renderPage();
 }
 
@@ -82,6 +87,7 @@ function renderPage() {
   });
 
   container.innerHTML = html;
+  renderUserRoutines();
 }
 
 function handleDayRowClick(d) {
@@ -153,9 +159,14 @@ function closeExEdit() {
   document.getElementById('ex-edit-overlay').classList.remove('open');
   document.body.style.overflow = '';
   exEditTarget = null;
+  exEditRoutineTarget = null;
 }
 
 function saveExEdit() {
+  if (exEditRoutineTarget) {
+    saveRoutineExerciseEdit(exEditRoutineTarget.routineId, exEditRoutineTarget.exIdx);
+    return;
+  }
   if (!exEditTarget) return;
   const { d, idx } = exEditTarget;
   const ex = editDays[d].exercises[idx];
@@ -187,6 +198,7 @@ function closePicker() {
   document.getElementById('picker-overlay').classList.remove('open');
   document.body.style.overflow = '';
   pickerDay = null;
+  routinePickerDay = null;
   pickerSearch = '';
 }
 
@@ -204,7 +216,11 @@ function setPickerFilter(group) {
 
 function renderPicker() {
   const groups = Object.keys(EXERCISE_CATALOG);
-  const currentExIds = new Set((editDays[pickerDay]?.exercises || []).map(e => e.id));
+  const currentExIds = new Set(
+    pickerDay && pickerDay.startsWith('rut_')
+      ? (userRoutines.find(r => r.id === pickerDay)?.exercises || []).map(e => e.id)
+      : (editDays[pickerDay]?.exercises || []).map(e => e.id)
+  );
   const searchTerm = pickerSearch.trim();
   const normalize = str => str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -258,11 +274,77 @@ function renderPicker() {
 }
 
 function addExercise(d, exId) {
+  if (d && d.startsWith('rut_')) {
+    addExerciseToRoutine(d, exId);
+    return;
+  }
   const ex = CATALOG_BY_ID[exId];
   if (!ex || editDays[d].exercises.find(e => e.id === exId)) return;
   editDays[d].exercises.push({ ...ex });
   renderPicker();
   renderPage();
+}
+
+// ─── MIS RUTINAS — LÓGICA ─────────────────────────────────────────────────────
+
+function generateRoutineId() {
+  return 'rut_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
+}
+
+async function createNewRoutine() {
+  const routine = { id: generateRoutineId(), name: 'Rutina ' + (userRoutines.length + 1), exercises: [] };
+  userRoutines.push(routine);
+  await saveUserRoutines(user, userRoutines);
+  renderUserRoutines();
+}
+
+async function deleteRoutine(routineId) {
+  if (!confirm('¿Eliminar esta rutina? Esta acción no se puede deshacer.')) return;
+  userRoutines = userRoutines.filter(r => r.id !== routineId);
+  if (openRoutineId === routineId) openRoutineId = null;
+  await saveUserRoutines(user, userRoutines);
+  renderUserRoutines();
+}
+
+async function renameRoutine(routineId, newName) {
+  const trimmed = (newName || '').trim();
+  if (!trimmed) { renderUserRoutines(); return; }
+  const routine = userRoutines.find(r => r.id === routineId);
+  if (routine) routine.name = trimmed;
+  await saveUserRoutines(user, userRoutines);
+  renderUserRoutines();
+}
+
+async function addExerciseToRoutine(routineId, exId) {
+  const routine = userRoutines.find(r => r.id === routineId);
+  if (!routine) return;
+  const ex = CATALOG_BY_ID[exId];
+  if (!ex || routine.exercises.find(e => e.id === exId)) return;
+  routine.exercises.push({ ...ex });
+  await saveUserRoutines(user, userRoutines);
+  renderUserRoutines();
+  renderPicker();
+}
+
+async function removeExerciseFromRoutine(routineId, exIdx) {
+  const routine = userRoutines.find(r => r.id === routineId);
+  if (!routine) return;
+  routine.exercises.splice(exIdx, 1);
+  await saveUserRoutines(user, userRoutines);
+  renderUserRoutines();
+}
+
+async function saveRoutineExerciseEdit(routineId, exIdx) {
+  const routine = userRoutines.find(r => r.id === routineId);
+  if (!routine) return;
+  const ex = routine.exercises[exIdx];
+  ex.sets = Math.max(1, parseInt(document.getElementById('ex-edit-sets').value) || ex.sets);
+  ex.reps = document.getElementById('ex-edit-reps').value.trim() || ex.reps;
+  ex.rpe  = document.getElementById('ex-edit-rpe').value.trim()  || ex.rpe;
+  ex.rest = document.getElementById('ex-edit-rest').value.trim() || ex.rest;
+  closeExEdit();
+  await saveUserRoutines(user, userRoutines);
+  renderUserRoutines();
 }
 
 // ─── SAVE / CLEAR ─────────────────────────────────────────────────────────────
@@ -303,6 +385,123 @@ function logout() {
 document.getElementById('picker-overlay').addEventListener('click', function(e) {
   if (e.target === this) closePicker();
 });
+
+// ─── MIS RUTINAS — RENDER ─────────────────────────────────────────────────────
+
+function handleRoutineCardClick(routineId) {
+  openRoutineId = openRoutineId === routineId ? null : routineId;
+  renderUserRoutines();
+}
+
+function startRoutineRename(e, routineId) {
+  e.stopPropagation();
+  const span = document.getElementById('routine-name-' + routineId);
+  if (!span || span.querySelector('input')) return;
+  const routine = userRoutines.find(r => r.id === routineId);
+  if (!routine) return;
+  span.innerHTML = `<input class="rut-rename-input" id="routine-rename-input-${routineId}" type="text" value="${escapeHTML(routine.name)}" maxlength="40"/>`;
+  const input = document.getElementById('routine-rename-input-' + routineId);
+  input.focus();
+  input.select();
+  input.addEventListener('keydown', function(ev) {
+    if (ev.key === 'Enter') { ev.preventDefault(); renameRoutine(routineId, input.value); }
+    if (ev.key === 'Escape') { renderUserRoutines(); }
+  });
+  input.addEventListener('blur', function() { renameRoutine(routineId, input.value); });
+}
+
+function openExEditRoutine(routineId, exIdx) {
+  const routine = userRoutines.find(r => r.id === routineId);
+  if (!routine) return;
+  const ex = routine.exercises[exIdx];
+  exEditRoutineTarget = { routineId, exIdx };
+  exEditTarget = null;
+  document.getElementById('ex-edit-name').textContent = ex.name;
+  document.getElementById('ex-edit-sets').value = ex.sets;
+  document.getElementById('ex-edit-reps').value = ex.reps;
+  document.getElementById('ex-edit-rpe').value = ex.rpe;
+  document.getElementById('ex-edit-rest').value = ex.rest;
+  document.getElementById('ex-edit-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function openPickerForRoutine(routineId) {
+  routinePickerDay = routineId;
+  pickerDay = routineId;
+  pickerFilter = null;
+  pickerSearch = '';
+  renderPicker();
+  document.getElementById('picker-overlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+  setTimeout(() => document.getElementById('picker-search-input')?.focus(), 80);
+}
+
+function renderUserRoutines() {
+  const container = document.getElementById('user-routines-container');
+  if (!container) return;
+
+  let html = `<div class="user-routines-section">
+    <div class="user-routines-header">
+      <div class="user-routines-title">Mis Rutinas</div>
+      <button class="new-routine-btn" onclick="createNewRoutine()">+ Nueva rutina</button>
+    </div>`;
+
+  if (userRoutines.length === 0) {
+    html += `<div class="rut-empty-day user-routines-empty">Crea tu primera rutina para usarla en el Tracker.</div>`;
+  } else {
+    userRoutines.forEach(routine => {
+      const isOpen = openRoutineId === routine.id;
+      const exCount = routine.exercises.length;
+      html += `<div class="rut-day-card${isOpen ? ' open' : ''}">
+        <div class="rut-day-row" onclick="handleRoutineCardClick('${routine.id}')">
+          <div class="rut-day-info">
+            <div class="rut-day-name-row">
+              <span class="rut-day-name" id="routine-name-${routine.id}">${escapeHTML(routine.name)}</span>
+              <button class="rut-rename-btn" onclick="startRoutineRename(event,'${routine.id}')" title="Renombrar">✏️</button>
+            </div>
+            <span class="routine-count-label">${exCount} ejercicio${exCount !== 1 ? 's' : ''}</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <button class="rut-remove-btn" onclick="event.stopPropagation();deleteRoutine('${routine.id}')" aria-label="Eliminar">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M2 2l10 10M12 2L2 12" stroke="#c0392b" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </button>
+            <span class="rut-chevron">${isOpen ? '▲' : '▼'}</span>
+          </div>
+        </div>`;
+
+      if (isOpen) {
+        html += `<div class="rut-ex-list">`;
+        if (exCount === 0) {
+          html += `<div class="rut-empty-day">Sin ejercicios. Añade uno abajo.</div>`;
+        } else {
+          routine.exercises.forEach((ex, idx) => {
+            html += `<div class="rut-ex-item">
+              <div class="rut-ex-item-info">
+                <div class="rut-ex-item-name">${escapeHTML(ex.name)}</div>
+                <div class="rut-ex-item-meta">${ex.sets} series · ${escapeHTML(String(ex.reps))} reps · RPE ${escapeHTML(String(ex.rpe))}</div>
+              </div>
+              <button class="rut-edit-btn" onclick="openExEditRoutine('${routine.id}',${idx})" title="Editar">✏️</button>
+              <button class="rut-remove-btn" onclick="removeExerciseFromRoutine('${routine.id}',${idx})" aria-label="Eliminar">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                  <path d="M2 2l10 10M12 2L2 12" stroke="#c0392b" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>`;
+          });
+        }
+        html += `<button class="rut-add-btn" onclick="openPickerForRoutine('${routine.id}')">+ Añadir ejercicio</button>
+        </div>`;
+      }
+
+      html += `</div>`;
+    });
+  }
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
 
 // SECURITY: async init — decrypts routine data before rendering
 init().catch(err => console.error('Rutina init error:', err));
