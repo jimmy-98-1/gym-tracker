@@ -694,8 +694,8 @@ body.dark .vol-down { color: var(--danger); }
 body.dark .vol-eq { color: var(--text3); }
 
 /* ─── MIS RUTINAS ──────────────────────────────────────────────────────────── */
-#user-routines-container { padding: 0 16px; }
-.user-routines-section { margin-top: 24px; padding-top: 20px; border-top: 0.5px solid var(--border); }
+#user-routines-container { padding: 0; }
+.user-routines-section { }
 .user-routines-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
 .user-routines-title { font-size: 22px; font-weight: 800; color: var(--text); }
 .new-routine-btn { background: var(--bg); border: 1.5px dashed var(--border2); border-radius: 12px; padding: 8px 16px; font-size: 13px; font-weight: 700; color: var(--text2); cursor: pointer; font-family: inherit; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
@@ -748,10 +748,13 @@ body.dark .load-routine-btn { background: #2C2C2E; border-color: rgba(255,255,25
 body.dark .schedule-panel { background: var(--surface); }
 body.dark .schedule-day.train { background: #3D2200; border-color: var(--orange-mid); }
 
+/* ─── COLLAPSIBLE SECTION HEADERS ────────────────────────────────────────── */
+.section-collapse-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 0 12px; cursor: pointer; user-select: none; }
+.section-title { font-size: 22px; font-weight: 800; color: var(--text); margin-bottom: 2px; line-height: 1.15; }
+.section-sub { font-size: 13px; color: var(--text3); }
+.section-chevron { font-size: 12px; margin-top: 6px; flex-shrink: 0; }
+
 /* ─── WEEKLY CONFIG SECTION ──────────────────────────────────────────────── */
-#weekly-config-section { padding: 0 16px; }
-.weekly-config-header { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; margin-bottom: 8px; cursor: pointer; user-select: none; }
-.weekly-config-title { font-size: 17px; font-weight: 700; color: var(--text); display: flex; align-items: center; justify-content: space-between; }
-.weekly-config-sub { font-size: 13px; color: var(--text2); margin-top: 3px; }
+#weekly-config-section { padding: 0 16px; border-top: 1px solid var(--border); }
+.user-routines-section { padding: 0 16px; }
 .user-routines-title { font-size: 22px; font-weight: 800; color: var(--text); }
-body.dark .weekly-config-header { background: var(--surface); border-color: var(--border); }

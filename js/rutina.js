@@ -12,6 +12,7 @@ let openRoutineId = null;
 let routinePickerDay = null;
 let exEditRoutineTarget = null;
 let weeklyConfigOpen = false;
+let myRoutinesOpen = false;
 
 async function init() {
   document.getElementById('week-badge').textContent = formatTodayDate();
@@ -34,6 +35,11 @@ function toggleWeeklyConfig() {
   renderPage();
 }
 
+function toggleMyRoutines() {
+  myRoutinesOpen = !myRoutinesOpen;
+  renderUserRoutines();
+}
+
 function renderPage() {
   const container = document.getElementById('rutina-container');
   const section = document.getElementById('weekly-config-section');
@@ -45,12 +51,15 @@ function renderPage() {
     if (!headerEl) {
       headerEl = document.createElement('div');
       headerEl.id = 'weekly-config-header';
-      headerEl.className = 'weekly-config-header';
+      headerEl.className = 'section-collapse-header';
       headerEl.onclick = toggleWeeklyConfig;
       section.insertBefore(headerEl, container);
     }
-    headerEl.innerHTML = `<div class="weekly-config-title">Configuración semanal <span class="rut-chevron">${weeklyConfigOpen ? '▲' : '▼'}</span></div>
-      <div class="weekly-config-sub">Personaliza los días y ejercicios de tu semana</div>`;
+    headerEl.innerHTML = `<div>
+        <div class="section-title">Configuración semanal</div>
+        <div class="section-sub">Personaliza los días y ejercicios de tu semana</div>
+      </div>
+      <span class="rut-chevron section-chevron">${weeklyConfigOpen ? '▲' : '▼'}</span>`;
     container.style.display = weeklyConfigOpen ? '' : 'none';
     if (actionsEl) actionsEl.style.display = weeklyConfigOpen ? '' : 'none';
   }
@@ -469,63 +478,75 @@ function renderUserRoutines() {
   const container = document.getElementById('user-routines-container');
   if (!container) return;
 
+  const subText = myRoutinesOpen
+    ? (userRoutines.length === 1 ? '1 rutina creada' : `${userRoutines.length} rutinas creadas`)
+    : 'Toca para ver tus rutinas personalizadas';
+
   let html = `<div class="user-routines-section">
-    <div class="user-routines-header">
-      <div class="user-routines-title">Mis Rutinas</div>
-      <button class="new-routine-btn" onclick="createNewRoutine()">+ Nueva rutina</button>
+    <div class="section-collapse-header" onclick="toggleMyRoutines()">
+      <div>
+        <div class="section-title">Mis Rutinas</div>
+        <div class="section-sub">${subText}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        ${myRoutinesOpen ? `<button class="new-routine-btn" onclick="event.stopPropagation();createNewRoutine()">+ Nueva rutina</button>` : ''}
+        <span class="rut-chevron section-chevron">${myRoutinesOpen ? '▲' : '▼'}</span>
+      </div>
     </div>`;
 
-  if (userRoutines.length === 0) {
-    html += `<div class="rut-empty-day user-routines-empty">Crea tu primera rutina para usarla en el Tracker.</div>`;
-  } else {
-    userRoutines.forEach(routine => {
-      const isOpen = openRoutineId === routine.id;
-      const exCount = routine.exercises.length;
-      html += `<div class="rut-day-card${isOpen ? ' open' : ''}">
-        <div class="rut-day-row" onclick="handleRoutineCardClick('${routine.id}')">
-          <div class="rut-day-info">
-            <div class="rut-day-name-row">
-              <span class="rut-day-name" id="routine-name-${routine.id}">${escapeHTML(routine.name)}</span>
-              <button class="rut-rename-btn" onclick="startRoutineRename(event,'${routine.id}')" title="Renombrar">✏️</button>
-            </div>
-            <span class="routine-count-label">${exCount} ejercicio${exCount !== 1 ? 's' : ''}</span>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <button class="rut-remove-btn" onclick="event.stopPropagation();deleteRoutine('${routine.id}')" aria-label="Eliminar">
-              <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M2 2l10 10M12 2L2 12" stroke="#c0392b" stroke-width="2" stroke-linecap="round"/>
-              </svg>
-            </button>
-            <span class="rut-chevron">${isOpen ? '▲' : '▼'}</span>
-          </div>
-        </div>`;
-
-      if (isOpen) {
-        html += `<div class="rut-ex-list">`;
-        if (exCount === 0) {
-          html += `<div class="rut-empty-day">Sin ejercicios. Añade uno abajo.</div>`;
-        } else {
-          routine.exercises.forEach((ex, idx) => {
-            html += `<div class="rut-ex-item">
-              <div class="rut-ex-item-info">
-                <div class="rut-ex-item-name">${escapeHTML(ex.name)}</div>
-                <div class="rut-ex-item-meta">${ex.sets} series · ${escapeHTML(String(ex.reps))} reps · RPE ${escapeHTML(String(ex.rpe))}</div>
+  if (myRoutinesOpen) {
+    if (userRoutines.length === 0) {
+      html += `<div class="rut-empty-day user-routines-empty">Crea tu primera rutina para usarla en el Tracker.</div>`;
+    } else {
+      userRoutines.forEach(routine => {
+        const isOpen = openRoutineId === routine.id;
+        const exCount = routine.exercises.length;
+        html += `<div class="rut-day-card${isOpen ? ' open' : ''}">
+          <div class="rut-day-row" onclick="handleRoutineCardClick('${routine.id}')">
+            <div class="rut-day-info">
+              <div class="rut-day-name-row">
+                <span class="rut-day-name" id="routine-name-${routine.id}">${escapeHTML(routine.name)}</span>
+                <button class="rut-rename-btn" onclick="startRoutineRename(event,'${routine.id}')" title="Renombrar">✏️</button>
               </div>
-              <button class="rut-edit-btn" onclick="openExEditRoutine('${routine.id}',${idx})" title="Editar">✏️</button>
-              <button class="rut-remove-btn" onclick="removeExerciseFromRoutine('${routine.id}',${idx})" aria-label="Eliminar">
+              <span class="routine-count-label">${exCount} ejercicio${exCount !== 1 ? 's' : ''}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button class="rut-remove-btn" onclick="event.stopPropagation();deleteRoutine('${routine.id}')" aria-label="Eliminar">
                 <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                   <path d="M2 2l10 10M12 2L2 12" stroke="#c0392b" stroke-width="2" stroke-linecap="round"/>
                 </svg>
               </button>
-            </div>`;
-          });
-        }
-        html += `<button class="rut-add-btn" onclick="openPickerForRoutine('${routine.id}')">+ Añadir ejercicio</button>
-        </div>`;
-      }
+              <span class="rut-chevron">${isOpen ? '▲' : '▼'}</span>
+            </div>
+          </div>`;
 
-      html += `</div>`;
-    });
+        if (isOpen) {
+          html += `<div class="rut-ex-list">`;
+          if (exCount === 0) {
+            html += `<div class="rut-empty-day">Sin ejercicios. Añade uno abajo.</div>`;
+          } else {
+            routine.exercises.forEach((ex, idx) => {
+              html += `<div class="rut-ex-item">
+                <div class="rut-ex-item-info">
+                  <div class="rut-ex-item-name">${escapeHTML(ex.name)}</div>
+                  <div class="rut-ex-item-meta">${ex.sets} series · ${escapeHTML(String(ex.reps))} reps · RPE ${escapeHTML(String(ex.rpe))}</div>
+                </div>
+                <button class="rut-edit-btn" onclick="openExEditRoutine('${routine.id}',${idx})" title="Editar">✏️</button>
+                <button class="rut-remove-btn" onclick="removeExerciseFromRoutine('${routine.id}',${idx})" aria-label="Eliminar">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M2 2l10 10M12 2L2 12" stroke="#c0392b" stroke-width="2" stroke-linecap="round"/>
+                  </svg>
+                </button>
+              </div>`;
+            });
+          }
+          html += `<button class="rut-add-btn" onclick="openPickerForRoutine('${routine.id}')">+ Añadir ejercicio</button>
+          </div>`;
+        }
+
+        html += `</div>`;
+      });
+    }
   }
 
   html += `</div>`;

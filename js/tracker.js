@@ -27,8 +27,30 @@ let _editing = false;
 
 // Per-exercise rest overrides: { exId: seconds }
 let exRestOverrides = {};
+
+const SETS_OVERRIDES_KEY = 'gym_sets_overrides';
+
+function saveOverridesToSession() {
+  sessionStorage.setItem(SETS_OVERRIDES_KEY, JSON.stringify({ user, day: currentDay, overrides: _setsOverrides }));
+}
+
+function loadOverridesFromSession() {
+  try {
+    const raw = sessionStorage.getItem(SETS_OVERRIDES_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (parsed.user !== user || parsed.day !== currentDay) {
+      sessionStorage.removeItem(SETS_OVERRIDES_KEY);
+      return {};
+    }
+    return parsed.overrides || {};
+  } catch (e) {
+    return {};
+  }
+}
+
 // Per-exercise sets overrides: { exId: number } — temporal, se borra al cambiar de día
-let _setsOverrides = {};
+let _setsOverrides = loadOverridesFromSession();
 let pickerTargetEx = null;
 
 // Id de la rutina de usuario cargada en el día actual (temporal, se borra al cambiar de día)
@@ -112,7 +134,7 @@ function renderDayNav() {
     const info = R[d];
     btn.className = 'day-pill' + (d === currentDay ? ' active' : info.rest ? ' rest-day' : ' inactive');
     btn.textContent = info.label;
-    btn.onclick = () => { currentDay = d; exRestOverrides = {}; _setsOverrides = {}; _loadedRoutineId = null; render(); };
+    btn.onclick = () => { currentDay = d; exRestOverrides = {}; _setsOverrides = {}; saveOverridesToSession(); _loadedRoutineId = null; render(); };
     nav.appendChild(btn);
   });
 }
@@ -276,7 +298,7 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
     </div>
     <div class="series-header">
       <span class="sh-label">#</span>
-      <span class="sh-label" style="text-align:left">Anterior</span>
+      <span class="sh-label" style="text-align:left">Sesión anterior</span>
       <span class="sh-label">kg</span>
       <span class="sh-label">reps</span>
       <span class="sh-label">RPE</span>
@@ -372,6 +394,7 @@ async function cancelEdit() {
   _editing = false;
   _cachedData = null;
   _setsOverrides = {};
+  saveOverridesToSession();
   await render();
 }
 
@@ -413,6 +436,7 @@ async function adjustSets(exId, delta) {
     }
   }
   _setsOverrides[exId] = next;
+  saveOverridesToSession();
   await render();
 }
 
@@ -1219,6 +1243,7 @@ async function clearDayAssignment() {
   _assignments[currentDay] = null;
   _loadedRoutineId = null;
   _setsOverrides = {};
+  saveOverridesToSession();
   await saveRoutineAssignments(user, _assignments);
   await render();
   showToast('Rutina del día restaurada');
