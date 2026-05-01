@@ -343,8 +343,10 @@ body.dark .pass-strength-bar { background: #48484A; }
 .picker-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px 12px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
 .picker-title { font-size: 16px; font-weight: 800; color: var(--text); }
 .picker-close { font-size: 16px; color: var(--text2); background: var(--surface2); border: none; border-radius: 50%; width: 30px; height: 30px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.picker-chips-wrap { padding: 10px 16px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
+.picker-search-wrap { padding: 10px 16px 0; flex-shrink: 0; }
+.picker-chips-wrap { padding: 8px 16px; border-bottom: 0.5px solid var(--border); flex-shrink: 0; overflow-x: auto; scrollbar-width: none; }
 .picker-chips-wrap::-webkit-scrollbar { display: none; }
+.picker-chips-wrap:empty { padding: 0; border-bottom: none; }
 .picker-chips { display: flex; gap: 6px; }
 .picker-chip { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; border: 0.5px solid var(--border); background: var(--surface); color: var(--text2); cursor: pointer; font-family: inherit; transition: all 0.15s; }
 .picker-chip.active { background: var(--orange); color: #fff; border-color: var(--orange); }
@@ -661,7 +663,7 @@ body.dark .cardio-done-btn { background: #2C2C2E; color: #D1D1D6; border-color: 
 body.dark .cardio-done-btn.done { background: #1565C0; color: #fff; }
 
 /* ─── PICKER BUSCADOR ─────────────────────────────────────────────────────────── */
-.picker-search-row { display: flex; align-items: center; gap: 8px; background: var(--surface2); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+.picker-search-row { display: flex; align-items: center; gap: 8px; background: var(--surface2); border-radius: 12px; padding: 8px 12px; }
 .picker-search-icon { font-size: 15px; flex-shrink: 0; }
 .picker-search-input { flex: 1; border: none; background: transparent; font-size: 14px; font-weight: 500; color: var(--text); outline: none; font-family: inherit; }
 .picker-search-input::placeholder { color: var(--text3); }

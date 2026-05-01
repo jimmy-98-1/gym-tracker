@@ -249,21 +249,25 @@ function renderPicker() {
   const searchTerm = pickerSearch.trim();
   const normalize = str => str.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
-  // Build chips-wrap: always show search input, chips only when no search
-  let chipsWrapHtml = `<div class="picker-search-row">
+  // Search input always visible in its own non-scrollable wrapper
+  document.getElementById('picker-search-wrap').innerHTML = `<div class="picker-search-row">
     <span class="picker-search-icon">🔍</span>
     <input class="picker-search-input" id="picker-search-input" type="text" placeholder="Buscar ejercicio..."
       value="${escapeHTML(pickerSearch)}" oninput="setPickerSearch(this.value)" autocomplete="off"/>
   </div>`;
+
+  // Chips only when not searching, in the scrollable chips container
   if (!searchTerm) {
-    chipsWrapHtml += `<div class="picker-chips">
+    let chipsHtml = `<div class="picker-chips">
       <button class="picker-chip${!pickerFilter ? ' active' : ''}" onclick="setPickerFilter(null)">Todos</button>`;
     groups.forEach(g => {
-      chipsWrapHtml += `<button class="picker-chip${pickerFilter === g ? ' active' : ''}" onclick="setPickerFilter('${g}')">${g}</button>`;
+      chipsHtml += `<button class="picker-chip${pickerFilter === g ? ' active' : ''}" onclick="setPickerFilter('${g}')">${g}</button>`;
     });
-    chipsWrapHtml += `</div>`;
+    chipsHtml += `</div>`;
+    document.getElementById('picker-chips-wrap').innerHTML = chipsHtml;
+  } else {
+    document.getElementById('picker-chips-wrap').innerHTML = '';
   }
-  document.getElementById('picker-chips-wrap').innerHTML = chipsWrapHtml;
 
   // Build list
   const buildItem = (ex) => {

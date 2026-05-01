@@ -149,7 +149,7 @@ function renderSession(data, wk, weekNum) {
     return;
   }
 
-  const done = exercises.filter(ex => isExDone(ex, dayData)).length;
+  const done = exercises.filter(ex => isExDone(ex, dayData, _setsOverrides[ex.id] ?? ex.sets)).length;
   const pct = Math.round((done / exercises.length) * 100);
 
   html += `<div class="session-meta">${info.duration ?? ''} · ${exercises.length} ejercicios</div>
@@ -158,7 +158,7 @@ function renderSession(data, wk, weekNum) {
     <div class="progress-label"><span id="progress-done-label">${done} de ${exercises.length} completados</span><span>${pct}%</span></div>
   </div></div><div class="cards-wrap">`;
 
-  const allDone = exercises.every(ex => isExDone(ex, dayData));
+  const allDone = exercises.every(ex => isExDone(ex, dayData, _setsOverrides[ex.id] ?? ex.sets));
   if (allDone) {
     html += `<div class="completed-overlay">
       <div class="co-title">Sesión completada 💪</div>
@@ -173,7 +173,7 @@ function renderSession(data, wk, weekNum) {
   exercises.forEach(ex => {
     const exData = dayData[ex.id] || {};
     const lastSession = getLastSessionData(ex.id, data);
-    html += renderExCard(ex, exData, lastSession, isExDone(ex, dayData), isSaved, isEditing);
+    html += renderExCard(ex, exData, lastSession, isExDone(ex, dayData, _setsOverrides[ex.id] ?? ex.sets), isSaved, isEditing);
   });
 
   let saveAreaHtml;
