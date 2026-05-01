@@ -37,6 +37,8 @@ let _loadedRoutineId = null;
 let _userRoutinesCache = null;
 // Asignaciones persistidas { lun: routineId|null, ... }
 let _assignments = {};
+// Rutina expandida en el modal de selección de rutina
+let _expandedRoutineId = null;
 
 async function getUserRoutines() {
   if (_userRoutinesCache !== null) return _userRoutinesCache;
@@ -1155,21 +1157,43 @@ function renderRoutineLoaderModal(routines) {
 
   routines.forEach(r => {
     const isLoaded = _loadedRoutineId === r.id;
+    const isExpanded = _expandedRoutineId === r.id;
     const exCount = r.exercises.length;
-    const previewNames = r.exercises.slice(0, 3).map(e => escapeHTML(e.name)).join(' · ');
     const countStr = exCount + ' ejercicio' + (exCount !== 1 ? 's' : '');
-    const meta = exCount === 0 ? countStr : countStr + ' · ' + previewNames;
-    html += `<div class="routine-loader-card${isLoaded ? ' loaded' : ''}" onclick="loadRoutineIntoDay('${r.id}')">
+    html += `<div class="routine-loader-card${isLoaded ? ' loaded' : ''}${isExpanded ? ' expanded' : ''}" onclick="toggleRoutinePreview('${r.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
         <div class="routine-loader-card-name">${escapeHTML(r.name)}</div>
         ${isLoaded ? '<span class="routine-loaded-badge">Cargada ✓</span>' : ''}
       </div>
-      <div class="routine-loader-card-meta">${meta}</div>
-    </div>`;
+      <div class="routine-loader-card-meta">${countStr}</div>`;
+
+    if (isExpanded) {
+      html += `<div class="routine-preview-list">`;
+      if (exCount === 0) {
+        html += `<div class="routine-preview-empty">Sin ejercicios</div>`;
+      } else {
+        r.exercises.forEach(ex => {
+          html += `<div class="routine-preview-item">
+            <span class="routine-preview-item-name">${escapeHTML(ex.name)}</span>
+            <span class="routine-preview-item-meta">${ex.sets} series · ${escapeHTML(String(ex.reps))} reps · RPE ${escapeHTML(String(ex.rpe))}</span>
+          </div>`;
+        });
+      }
+      html += `<button class="routine-load-confirm-btn" onclick="event.stopPropagation();loadRoutineIntoDay('${r.id}')">↑ Cargar en este día</button>
+      </div>`;
+    }
+
+    html += `</div>`;
   });
 
   html += `</div>`;
   sheet.innerHTML = html;
+}
+
+function toggleRoutinePreview(routineId) {
+  _expandedRoutineId = _expandedRoutineId === routineId ? null : routineId;
+  const routines = _userRoutinesCache;
+  if (routines) renderRoutineLoaderModal(routines);
 }
 
 async function loadRoutineIntoDay(routineId) {
@@ -1188,6 +1212,7 @@ async function loadRoutineIntoDay(routineId) {
 function closeRoutineLoader() {
   document.getElementById('routine-loader-overlay').classList.remove('open');
   document.body.style.overflow = '';
+  _expandedRoutineId = null;
 }
 
 async function clearDayAssignment() {

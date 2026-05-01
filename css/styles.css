@@ -714,9 +714,18 @@ body.dark .new-routine-btn { background: #2C2C2E; border-color: rgba(255,255,255
 .routine-loader-card-name { font-size: 15px; font-weight: 700; color: var(--text); }
 .routine-loader-card-meta { font-size: 12px; color: var(--text3); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .routine-loaded-badge { font-size: 10px; font-weight: 700; background: var(--orange); color: #fff; padding: 3px 8px; border-radius: 8px; white-space: nowrap; flex-shrink: 0; }
+.routine-loader-card.expanded { border-color: var(--orange); background: var(--orange-bg); }
+.routine-preview-list { border-top: 0.5px solid var(--orange-mid); margin-top: 10px; padding-top: 10px; }
+.routine-preview-item { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 5px 0; }
+.routine-preview-item-name { font-size: 13px; font-weight: 500; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.routine-preview-item-meta { font-size: 11px; color: var(--text3); white-space: nowrap; flex-shrink: 0; }
+.routine-preview-empty { font-size: 13px; color: var(--text3); text-align: center; padding: 8px 0; font-style: italic; }
+.routine-load-confirm-btn { width: 100%; background: var(--orange); color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; margin-top: 12px; transition: opacity 0.15s; }
+.routine-load-confirm-btn:active { opacity: 0.8; }
 body.dark .routine-loader-card { background: #3A3A3C; }
 body.dark .routine-loader-card:hover { background: #3D2200; }
 body.dark .routine-loader-card.loaded { background: #3D2200; border-color: var(--orange); }
+body.dark .routine-loader-card.expanded { background: #3D2200; border-color: var(--orange); }
 body.dark .load-routine-btn { background: #2C2C2E; border-color: rgba(255,255,255,0.2); color: #D1D1D6; }
 
 /* ─── CLEAR ASSIGNMENT BUTTON ──────────────────────────────────────────────── */

@@ -21,8 +21,9 @@ async function render() {
     stats.totalDays > 0 ? `${stats.totalDays} días entrenados en total` : 'Aún sin sesiones registradas';
 
   renderCalendar(data);
-  renderSideStats(stats, data);
-  await renderSchedulePanel();
+  renderSideStats(stats, data, schedule);
+  // SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
+  // await renderSchedulePanel();
   renderWeeklyVolumeComparison(data);
   renderProgressionChart(data);
 }
@@ -110,14 +111,17 @@ function calcDayVolume(date, data) {
   return vol;
 }
 
-function calcMonthProgress(data) {
+function calcMonthProgress(data, schedule = null) {
   const now = new Date();
   const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
   let trained = 0, total = 0;
   for (let d = 1; d <= today; d++) {
     const date = new Date(year, month, d);
     const dayKey = getDayKeyFromDate(date);
-    if (ROUTINE[dayKey]?.rest) continue;
+    const isRest = schedule && schedule[dayKey]
+      ? schedule[dayKey] === 'rest'
+      : !!ROUTINE[dayKey]?.rest;
+    if (isRest) continue;
     total++;
     const wk = getWeekKeyFromDate(date);
     const dayData = data[wk]?.[dayKey];
@@ -190,8 +194,8 @@ function funComparison(kg) {
   return `🏋️ ${kg} kg`;
 }
 
-function renderSideStats(s, data) {
-  const mp = calcMonthProgress(data);
+function renderSideStats(s, data, schedule) {
+  const mp = calcMonthProgress(data, schedule);
   const pct = mp.total > 0 ? mp.trained / mp.total : 0;
   const r = 20, sw = 4, cx = 26, cy = 26, size = 52;
   const circ = 2 * Math.PI * r;
@@ -676,8 +680,8 @@ function renderWeeklyVolumeComparison(data) {
   document.getElementById('muscle-section').innerHTML = html || '';
 }
 
-// ─── SCHEDULE PANEL ──────────────────────────────────────────────────────────
-
+// SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
+/*
 async function renderSchedulePanel() {
   const container = document.getElementById('schedule-section');
   if (!container) return;
@@ -720,6 +724,7 @@ async function toggleScheduleDay(dayKey) {
   await saveTrainingSchedule(user, schedule);
   await renderSchedulePanel();
 }
+*/
 
 // ─── MISC ─────────────────────────────────────────────────────────────────────
 
