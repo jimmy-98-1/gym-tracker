@@ -6,6 +6,8 @@ let calYear, calMonth;
 let _libRoutine = null;
 let _libData = null;
 let _selectedProgressionExId = null;
+let _progSectionOpen = true;
+let _prsSectionOpen = true;
 
 async function render() {
   document.getElementById('week-badge').textContent = formatTodayDate();
@@ -484,6 +486,16 @@ function selectProgressionEx(exId) {
   renderProgressionChart(_libData);
 }
 
+function toggleProgSection() {
+  _progSectionOpen = !_progSectionOpen;
+  renderProgressionChart(_libData);
+}
+
+function togglePrsSection() {
+  _prsSectionOpen = !_prsSectionOpen;
+  renderPRsSection(_libData);
+}
+
 function renderProgressionChart(data) {
   const exerciseHistory = {};
   const allWeeks = Object.keys(data).sort();
@@ -513,10 +525,15 @@ function renderProgressionChart(data) {
     .filter(([, hist]) => hist.length >= 2)
     .sort(([, a], [, b]) => b.length - a.length);
 
+  const chevron = _progSectionOpen ? '▲' : '▼';
+  const headerHtml = `<div class="bib-section-header" onclick="toggleProgSection()">
+    <h2 class="bib-section-title-orange">Tu Progresión</h2>
+    <span class="section-chevron">${chevron}</span>
+  </div>`;
+
   if (eligibleExercises.length === 0) {
-    document.getElementById('prog-section').innerHTML = `
-      <div class="prog-section-title">Tu progresión</div>
-      <div class="prog-card"><div style="text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Entrena más veces para ver tu progresión</div></div>`;
+    document.getElementById('prog-section').innerHTML = headerHtml +
+      (_progSectionOpen ? `<div class="prog-card"><div style="text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Entrena más veces para ver tu progresión</div></div>` : '');
     return;
   }
 
@@ -574,9 +591,16 @@ function renderProgressionChart(data) {
   const trendDir = latest.maxKg > prev.maxKg ? 'up' : latest.maxKg < prev.maxKg ? 'down' : 'eq';
   const trendIcon = { up: '↑', down: '↓', eq: '–' }[trendDir];
 
-  document.getElementById('prog-section').innerHTML = `
-    <div class="prog-section-title">Tu progresión — ${escapeHTML(exName)}</div>
-    <div class="prog-card" style="padding-bottom:14px">
+  if (!_progSectionOpen) {
+    const previewName = escapeHTML(exName);
+    const previewKg = latest.maxKg;
+    document.getElementById('prog-section').innerHTML = headerHtml +
+      `<div class="bib-section-preview">${previewName} · ${previewKg} kg</div>`;
+    return;
+  }
+
+  document.getElementById('prog-section').innerHTML = headerHtml +
+    `<div class="prog-card" style="padding-bottom:14px">
       ${selectHtml}
       <div style="margin-bottom:6px">${svgHtml}</div>
       <div class="prog-footer">
@@ -789,12 +813,15 @@ function renderPRsSection(data) {
 
   const entries = Object.entries(exBests).sort(([, a], [, b]) => b.maxKg - a.maxKg).slice(0, 10);
 
+  const prsChevron = _prsSectionOpen ? '▲' : '▼';
+  const prsHeaderHtml = `<div class="bib-section-header" onclick="togglePrsSection()">
+    <h2 class="bib-section-title-orange">Mis Récords 🏆</h2>
+    <span class="section-chevron">${prsChevron}</span>
+  </div>`;
+
   if (entries.length === 0) {
-    container.innerHTML = `
-      <div class="prs-section-title">Mis Récords</div>
-      <div class="prog-card" style="text-align:center;padding:20px;color:var(--text3);font-size:14px">
-        Completa tu primer entreno para ver tus récords aquí
-      </div>`;
+    container.innerHTML = prsHeaderHtml +
+      (_prsSectionOpen ? `<div class="prog-card" style="text-align:center;padding:20px;color:var(--text3);font-size:14px">Completa tu primer entreno para ver tus récords aquí</div>` : '');
     return;
   }
 
@@ -807,7 +834,21 @@ function renderPRsSection(data) {
     return (curYear - parseInt(y)) * 52 + (curWeekNum - parseInt(wStr));
   }
 
-  let html = `<div class="prs-section-title">Mis Récords</div><div class="prs-list">`;
+  if (!_prsSectionOpen) {
+    const [firstExId, firstBest] = entries[0];
+    const firstName = getExName(firstExId);
+    const wa = weeksAgo(firstBest.wk);
+    let firstDateStr;
+    if (wa === 0) firstDateStr = 'esta semana';
+    else if (wa === 1) firstDateStr = 'la semana pasada';
+    else if (wa <= 4) firstDateStr = `hace ${wa} semanas`;
+    else { const [y, wStr2] = firstBest.wk.split('-W'); firstDateStr = `sem. ${wStr2} de ${y}`; }
+    container.innerHTML = prsHeaderHtml +
+      `<div class="bib-section-preview">${escapeHTML(firstName)} · ${firstBest.maxKg} kg — ${firstDateStr}</div>`;
+    return;
+  }
+
+  let html = prsHeaderHtml + `<div class="prs-list">`;
 
   entries.forEach(([exId, best]) => {
     const name = getExName(exId);

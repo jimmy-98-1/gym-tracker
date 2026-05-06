@@ -256,17 +256,15 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
     const checkClick = locked ? '' : `onclick="toggleSerie('${ex.id}',${i})"`;
     const checkStyle = (!sessionActive && !isSaved) ? ' style="pointer-events:none;opacity:0.4"' : '';
     const showRpe = isDone || isEditing;
+    const RPE_EMOJI = { '6': '😤', '8': '💪', '10': '🔥' };
     let rpeBtnsHtml;
     if (!showRpe) {
-      rpeBtnsHtml = '<div class="rpe-btns rpe-btns-hidden"></div>';
+      rpeBtnsHtml = '<div></div>';
+    } else if (locked) {
+      rpeBtnsHtml = `<div class="rpe-trigger-static">${RPE_EMOJI[rpe] || '—'}</div>`;
     } else {
-      const rpeVals = [['😤','6'],['💪','8'],['🔥','10']];
-      const btnItems = rpeVals.map(([emoji, val]) => {
-        const isActive = String(rpe) === val;
-        const clickAttr = locked ? '' : `onclick="setRpe('${ex.id}',${i},'${val}')"`;
-        return `<button class="rpe-btn${isActive ? ' active' : ''}" ${clickAttr}>${emoji}</button>`;
-      }).join('');
-      rpeBtnsHtml = `<div class="rpe-btns">${btnItems}</div>`;
+      const triggerLabel = RPE_EMOJI[rpe] || '—';
+      rpeBtnsHtml = `<button class="rpe-trigger" onclick="openRpePicker('${ex.id}',${i},this);event.stopPropagation()">${triggerLabel}</button>`;
     }
     rows += `<div class="series-row" data-exid="${escapeHTML(ex.id)}" data-setidx="${i}">
       <span class="s-num">${i + 1}</span>
@@ -315,7 +313,7 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
       <span class="sh-label" style="text-align:left">Sesión anterior</span>
       <span class="sh-label">kg</span>
       <span class="sh-label">reps</span>
-      <span class="sh-label">Esfuerzo</span>
+      <span class="sh-label">RPE</span>
       <span class="sh-label"></span>
     </div>
     ${rows}
@@ -348,6 +346,7 @@ function isSessionActive() {
 let pendingFlash = null;
 
 async function toggleSerie(exId, setIdx) {
+  unlockAudioContext();
   if (!isSessionActive()) {
     showToast('Pulsa ▶ Iniciar entreno para empezar');
     return;
@@ -544,6 +543,7 @@ function sessionStarted() {
 }
 
 function startSessionTimer() {
+  unlockAudioContext();
   if (!sessionStorage.getItem(SESSION_START_KEY)) {
     sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
   }
@@ -711,6 +711,10 @@ let _beepedAt = new Set();
 let _audioCtx = null;
 let timerFallbackInterval = null;
 
+let _rpeTargetEx = null;
+let _rpeTargetSet = null;
+let _rpeDismissHandler = null;
+
 function initTimerWorker() {
   if (timerWorker) return;
   try {
@@ -734,35 +738,42 @@ function initTimerWorker() {
   }
 }
 
-function generateBeep() {
+function unlockAudioContext() {
   try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = _audioCtx.createOscillator();
-    const gain = _audioCtx.createGain();
-    osc.connect(gain);
-    gain.connect(_audioCtx.destination);
-    osc.frequency.value = 880;
-    osc.type = 'sine';
-    gain.gain.setValueAtTime(0.4, _audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.3);
-    osc.start(_audioCtx.currentTime);
-    osc.stop(_audioCtx.currentTime + 0.3);
+    if (_audioCtx && _audioCtx.state === 'running') return;
+    if (!_audioCtx) {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (_audioCtx.state === 'suspended') {
+      _audioCtx.resume();
+    }
+    // Silent beep to fully unlock on iOS
+    try {
+      const osc = _audioCtx.createOscillator();
+      const gain = _audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(_audioCtx.destination);
+      gain.gain.setValueAtTime(0.001, _audioCtx.currentTime);
+      osc.start(_audioCtx.currentTime);
+      osc.stop(_audioCtx.currentTime + 0.01);
+    } catch(e) {}
   } catch(e) {}
 }
 
 function playBeep() {
   try {
-    if (!_audioCtx) _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!_audioCtx) return;
+    if (_audioCtx.state === 'suspended') _audioCtx.resume();
     const osc = _audioCtx.createOscillator();
     const gain = _audioCtx.createGain();
     osc.connect(gain);
     gain.connect(_audioCtx.destination);
     osc.frequency.value = 880;
     osc.type = 'sine';
-    gain.gain.setValueAtTime(0.25, _audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.25);
+    gain.gain.setValueAtTime(0.3, _audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.3);
     osc.start(_audioCtx.currentTime);
-    osc.stop(_audioCtx.currentTime + 0.25);
+    osc.stop(_audioCtx.currentTime + 0.3);
   } catch(e) {}
 }
 
@@ -784,6 +795,7 @@ function formatSeconds(secs) {
 }
 
 function startTimer(secsOrStr, exName) {
+  unlockAudioContext();
   const secs = typeof secsOrStr === 'number' ? secsOrStr : parseRestSeconds(secsOrStr);
   timerTotal = secs;
   timerPaused = false;
@@ -847,7 +859,7 @@ function updateTimerDisplay(secs) {
 }
 
 function timerFinished() {
-  generateBeep();
+  playBeep();
   const fab = document.getElementById('timer-fab');
   fab.classList.add('done');
   document.getElementById('timer-fab-time').textContent = '¡Venga! 💪';
@@ -1360,6 +1372,75 @@ function _selectExSwap(exId) {
   }
   _closeExSwapPicker();
   render();
+}
+
+// ─── RPE PICKER ───────────────────────────────────────────────────────────────
+
+function openRpePicker(exId, setIdx, triggerEl) {
+  _rpeTargetEx = exId;
+  _rpeTargetSet = setIdx;
+
+  const wk = getWeekKey();
+  const rpe = _cachedData?.[wk]?.[currentDay]?.[exId]?.[`s${setIdx}_rpe`] || '';
+
+  const rpeOptions = [
+    { emoji: '😤', label: 'Fácil', val: '6' },
+    { emoji: '💪', label: 'Bien', val: '8' },
+    { emoji: '🔥', label: 'Al límite', val: '10' },
+  ];
+
+  let picker = document.getElementById('rpe-picker-popover');
+  if (!picker) {
+    picker = document.createElement('div');
+    picker.id = 'rpe-picker-popover';
+    picker.className = 'rpe-picker-popover';
+    document.body.appendChild(picker);
+  }
+
+  let html = rpeOptions.map(opt =>
+    `<div class="rpe-picker-option${String(rpe) === opt.val ? ' selected' : ''}" onclick="selectRpeOption('${opt.val}')">
+      <span>${opt.emoji}</span><span>${opt.label}</span>
+    </div>`
+  ).join('');
+  html += `<div class="rpe-picker-option rpe-picker-clear" onclick="selectRpeOption('')"><span>—</span><span>Sin seleccionar</span></div>`;
+  picker.innerHTML = html;
+
+  const rect = triggerEl.getBoundingClientRect();
+  const pickerW = 180;
+  let left = rect.left;
+  if (left + pickerW > window.innerWidth - 8) left = window.innerWidth - pickerW - 8;
+  if (left < 8) left = 8;
+  picker.style.left = left + 'px';
+  picker.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+  picker.classList.add('open');
+
+  if (_rpeDismissHandler) document.removeEventListener('click', _rpeDismissHandler);
+  _rpeDismissHandler = function(e) {
+    if (!e.target.closest('#rpe-picker-popover') && !e.target.closest('.rpe-trigger')) {
+      closeRpePicker();
+    }
+  };
+  setTimeout(() => document.addEventListener('click', _rpeDismissHandler), 0);
+}
+
+function closeRpePicker() {
+  const picker = document.getElementById('rpe-picker-popover');
+  if (picker) picker.classList.remove('open');
+  if (_rpeDismissHandler) {
+    document.removeEventListener('click', _rpeDismissHandler);
+    _rpeDismissHandler = null;
+  }
+  _rpeTargetEx = null;
+  _rpeTargetSet = null;
+}
+
+async function selectRpeOption(val) {
+  const exId = _rpeTargetEx;
+  const setIdx = _rpeTargetSet;
+  closeRpePicker();
+  if (exId === null) return;
+  await updateSerie(exId, setIdx, 'rpe', val);
+  await render();
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
