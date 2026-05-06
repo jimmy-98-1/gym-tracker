@@ -384,25 +384,32 @@ async function openDayDetail(y, m, d) {
   const exercises = info?.exercises || [];
   const allPRs = getAllPRs(data);
 
-  document.getElementById('dd-title').textContent = `${DAY_LABELS_LONG[dayKey]} · ${info.name}`;
+  const sessionName = dayData._sessionName || info?.name || '';
+  document.getElementById('dd-title').textContent = `${DAY_LABELS_LONG[dayKey]} · ${sessionName}`;
   document.getElementById('dd-meta').textContent = `${d} de ${MONTH_NAMES_LONG[m]} de ${y}`;
+
+  const exerciseIds = dayData._sessionExercises || exercises.map(e => e.id);
 
   let totalVol = 0, totalSeriesDone = 0, exDoneCount = 0;
   let exBlocksHtml = '';
 
-  exercises.forEach(ex => {
-    const exData = dayData[ex.id];
+  exerciseIds.forEach(exId => {
+    const exData = dayData[exId];
     if (!exData) return;
+
+    const routineEx = exercises.find(e => e.id === exId);
+    const exName = routineEx?.name ?? getExName(exId);
+    const setsToCheck = routineEx?.sets ?? 20;
 
     let sets = [];
     let anyDone = false;
-    for (let i = 0; i < ex.sets; i++) {
+    for (let i = 0; i < setsToCheck; i++) {
       if (exData[`s${i}_done`]) {
         anyDone = true;
         const kg = parseFloat(exData[`s${i}_kg`]) || 0;
         const rep = parseInt(exData[`s${i}_rep`]) || 0;
         const orm = (kg > 0 && rep > 0) ? Math.round(kg * (1 + rep / 30)) : null;
-        const isPR = orm !== null && allPRs[ex.id] && orm >= allPRs[ex.id];
+        const isPR = orm !== null && allPRs[exId] && orm >= allPRs[exId];
         sets.push({ num: i + 1, kg, rep, orm, isPR });
         totalVol += kg * rep;
         totalSeriesDone++;
@@ -410,7 +417,7 @@ async function openDayDetail(y, m, d) {
     }
     if (!anyDone) return;
 
-    const allSets = Array.from({length: ex.sets}, (_, i) => exData[`s${i}_done`]);
+    const allSets = Array.from({length: setsToCheck}, (_, i) => exData[`s${i}_done`]);
     if (allSets.every(Boolean)) exDoneCount++;
 
     const dayVol = sets.reduce((a, s) => a + s.kg * s.rep, 0);
@@ -424,7 +431,7 @@ async function openDayDetail(y, m, d) {
     ).join('');
 
     exBlocksHtml += `<div class="dd-ex-block">
-      <div class="dd-ex-name">${ex.name}</div>
+      <div class="dd-ex-name">${escapeHTML(exName)}</div>
       <div class="dd-ex-sets">${setsHtml}</div>
       ${dayVol > 0 ? `<div class="dd-volume">Vol: ${Math.round(dayVol)} kg</div>` : ''}
     </div>`;
@@ -440,7 +447,7 @@ async function openDayDetail(y, m, d) {
       <div class="dd-sum-label">Volumen</div>
     </div>
     <div class="dd-sum-item">
-      <div class="dd-sum-val">${exDoneCount}/${exercises.length}</div>
+      <div class="dd-sum-val">${exDoneCount}/${exerciseIds.length}</div>
       <div class="dd-sum-label">Ejercicios</div>
     </div>
   </div>`;

@@ -196,7 +196,7 @@ function renderSession(data, wk, weekNum) {
 
   exercises.forEach(ex => {
     const exData = dayData[ex.id] || {};
-    const lastSession = getLastSessionData(ex.id, data);
+    const lastSession = getLastSessionData(ex.id, data, getWeekKey());
     html += renderExCard(ex, exData, lastSession, isExDone(ex, dayData, _setsOverrides[ex.id] ?? ex.sets), isSaved, isEditing);
   });
 
@@ -280,10 +280,14 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
   const restDisplay = restOverride !== undefined ? formatSeconds(restOverride) : ex.rest;
   const restIsCustom = restOverride !== undefined;
   const cardClick = (!sessionActive && !isSaved) ? `onclick="showToast('Pulsa ▶ Iniciar entreno para empezar')"` : '';
+  const hasDoneSeries = Object.keys(exData).some(k => k.endsWith('_done') && exData[k]);
+  const canModify = sessionActive && !isSaved && !hasDoneSeries;
   return `<div class="ex-card${done ? ' done' : ''}" ${cardClick}>
     <div class="ex-card-header">
       <div class="ex-name">${ex.name}</div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:6px;margin-top:1px">
+        ${canModify ? `<button class="sets-adj-btn" onclick="swapExInSession('${ex.id}');event.stopPropagation()" aria-label="Cambiar ejercicio" style="font-size:13px">🔄</button>` : ''}
+        ${canModify ? `<button class="sets-adj-btn" onclick="removeExFromSession('${ex.id}');event.stopPropagation()" aria-label="Eliminar ejercicio" style="color:#e53935;font-weight:700">✕</button>` : ''}
         <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',-1);event.stopPropagation()" aria-label="Quitar serie" ${locked ? 'disabled' : ''}>−</button>
         <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',+1);event.stopPropagation()" aria-label="Añadir serie" ${locked ? 'disabled' : ''}>+</button>
         <button class="ex-info-btn" onclick="showTechnique('${ex.id}','${ex.name.replace(/'/g,"&#39;")}','${noteEsc}');event.stopPropagation()" aria-label="Técnica">💡</button>
@@ -379,6 +383,8 @@ async function saveSession() {
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   data[wk][currentDay]._saved = true;
+  data[wk][currentDay]._sessionName = R[currentDay]?.name ?? '';
+  data[wk][currentDay]._sessionExercises = (R[currentDay]?.exercises || []).map(e => e.id);
   await saveDataAndCache(user, data);
   _cachedData = null;
   showToast('Sesión guardada 💪');
@@ -1247,6 +1253,100 @@ async function clearDayAssignment() {
   await saveRoutineAssignments(user, _assignments);
   await render();
   showToast('Rutina del día restaurada');
+}
+
+// ─── SWAP / REMOVE EXERCISE ───────────────────────────────────────────────────
+
+let _swapTargetExId = null;
+
+function removeExFromSession(exId) {
+  if (!R[currentDay]) return;
+  R[currentDay] = { ...R[currentDay], exercises: R[currentDay].exercises.filter(e => e.id !== exId) };
+  delete _setsOverrides[exId];
+  saveOverridesToSession();
+  render();
+}
+
+function swapExInSession(exId) {
+  _swapTargetExId = exId;
+  _openExSwapPicker();
+}
+
+function _openExSwapPicker() {
+  if (!document.getElementById('ex-picker-overlay')) {
+    const overlay = document.createElement('div');
+    overlay.id = 'ex-picker-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:600;background:rgba(0,0,0,0.5);display:flex;align-items:flex-end;justify-content:center';
+    overlay.innerHTML = `<div id="ex-picker-sheet" style="background:var(--surface);width:100%;max-width:480px;border-radius:20px 20px 0 0;max-height:72vh;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 16px 8px">
+        <span style="font-weight:700;font-size:16px">Seleccionar ejercicio</span>
+        <button onclick="_closeExSwapPicker()" style="background:none;border:none;font-size:20px;cursor:pointer;padding:4px;color:var(--text)">✕</button>
+      </div>
+      <div style="padding:0 16px 8px">
+        <input id="ex-picker-search" type="text" placeholder="Buscar ejercicio..." style="width:100%;padding:8px 12px;border:1px solid var(--border,#e0e0e0);border-radius:8px;font-size:14px;background:var(--surface2);color:var(--text);box-sizing:border-box" oninput="_filterExPicker(this.value)"/>
+      </div>
+      <div id="ex-picker-list" style="overflow-y:auto;flex:1;padding:0 16px 16px"></div>
+    </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) _closeExSwapPicker(); });
+    document.body.appendChild(overlay);
+  }
+  const searchEl = document.getElementById('ex-picker-search');
+  if (searchEl) searchEl.value = '';
+  _filterExPicker('');
+  document.getElementById('ex-picker-overlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+}
+
+function _closeExSwapPicker() {
+  const overlay = document.getElementById('ex-picker-overlay');
+  if (overlay) overlay.style.display = 'none';
+  document.body.style.overflow = '';
+  _swapTargetExId = null;
+}
+
+function _filterExPicker(query) {
+  const q = query.toLowerCase();
+  const list = document.getElementById('ex-picker-list');
+  if (!list) return;
+  if (typeof EXERCISE_CATALOG === 'undefined') {
+    list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text3)">Catálogo no disponible</div>';
+    return;
+  }
+  const currentExIds = new Set((R[currentDay]?.exercises || []).map(e => e.id));
+  let html = '';
+  Object.entries(EXERCISE_CATALOG).forEach(([group, exs]) => {
+    const filtered = exs.filter(ex => !q || ex.name.toLowerCase().includes(q) || group.toLowerCase().includes(q));
+    if (filtered.length === 0) return;
+    html += `<div style="font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;padding:8px 0 4px">${escapeHTML(group)}</div>`;
+    filtered.forEach(ex => {
+      const inUse = currentExIds.has(ex.id) && ex.id !== _swapTargetExId;
+      html += `<div style="padding:10px 12px;border-radius:8px;margin-bottom:4px;cursor:${inUse ? 'default' : 'pointer'};background:var(--surface2);opacity:${inUse ? '0.4' : '1'}"
+        ${!inUse ? `onclick="_selectExSwap('${escapeHTML(ex.id)}')"` : ''}>
+        <div style="font-size:14px;font-weight:600">${escapeHTML(ex.name)}</div>
+        <div style="font-size:12px;color:var(--text3)">${ex.sets} series · ${escapeHTML(String(ex.reps))} reps · RPE ${escapeHTML(String(ex.rpe))}</div>
+      </div>`;
+    });
+  });
+  if (!html) html = '<div style="text-align:center;padding:20px;color:var(--text3)">Sin resultados</div>';
+  list.innerHTML = html;
+}
+
+function _selectExSwap(exId) {
+  if (typeof EXERCISE_CATALOG === 'undefined') return;
+  let selectedEx = null;
+  Object.values(EXERCISE_CATALOG).forEach(exs => {
+    const found = exs.find(e => e.id === exId);
+    if (found) selectedEx = { ...found };
+  });
+  if (!selectedEx) return;
+  if (_swapTargetExId !== null) {
+    const idx = R[currentDay].exercises.findIndex(e => e.id === _swapTargetExId);
+    if (idx !== -1) R[currentDay].exercises[idx] = selectedEx;
+    delete _setsOverrides[_swapTargetExId];
+    saveOverridesToSession();
+  }
+  _closeExSwapPicker();
+  render();
 }
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────

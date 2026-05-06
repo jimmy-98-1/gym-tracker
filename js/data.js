@@ -147,9 +147,10 @@ async function getWeekNumber(user) {
   return Object.keys(data).sort().indexOf(wk) + 1;
 }
 
-function getLastSessionData(exId, data) {
+function getLastSessionData(exId, data, excludeWeek = null) {
   const weeks = Object.keys(data).sort().reverse();
   for (const wk of weeks) {
+    if (excludeWeek && wk === excludeWeek) continue;
     for (const day of DAYS) {
       if (data[wk]?.[day]?.[exId]) return data[wk][day][exId];
     }
