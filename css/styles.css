@@ -56,7 +56,7 @@ body.dark .day-pill.inactive { background: #2C2C2E; border-color: rgba(255,255,2
 body.dark .meta-chip { background: #48484A; color: #D1D1D6; }
 body.dark .s-kg { background: #4A2800; color: #FF9A5C; }
 body.dark .s-rep { background: #3D3300; color: #FFD000; }
-body.dark .s-rpe { background: #4A2800; color: #FF9A5C; }
+/* .s-rpe legacy — replaced by .rpe-btn */
 body.dark .sh-label { color: #8E8E93; }
 body.dark .s-num { color: #8E8E93; }
 body.dark .series-header { border-bottom-color: rgba(255,255,255,0.1); }
@@ -512,12 +512,15 @@ body.dark .pass-strength-bar { background: #48484A; }
 .rut-reorder-btn:disabled { opacity: 0.25; cursor: default; }
 
 /* ─── RPE EN SERIES ────────────────────────────────────────────────────────── */
-.series-header { display: grid; grid-template-columns: 18px 1fr 50px 50px 30px 28px; gap: 4px; align-items: center; padding: 0 2px 6px; border-bottom: 0.5px solid var(--border); margin-bottom: 4px; }
-.series-row    { display: grid; grid-template-columns: 18px 1fr 50px 50px 30px 28px; gap: 4px; align-items: center; padding: 5px 2px; }
-.s-rpe { background: var(--orange-bg); color: var(--kg-text); border-radius: 9px; font-size: 12px; font-weight: 700; padding: 6px 0; text-align: center; width: 100%; font-family: monospace; border: none; outline: none; cursor: pointer; transition: opacity 0.2s; }
-.s-rpe:focus { outline: 2px solid var(--orange); outline-offset: 1px; }
-.s-rpe.completed { opacity: 0.5; }
-.s-rpe:disabled { background: var(--surface2); color: var(--text3); cursor: default; }
+.series-header { display: grid; grid-template-columns: 18px 1fr 50px 50px 80px 28px; gap: 4px; align-items: center; padding: 0 2px 6px; border-bottom: 0.5px solid var(--border); margin-bottom: 4px; }
+.series-row    { display: grid; grid-template-columns: 18px 1fr 50px 50px 80px 28px; gap: 4px; align-items: center; padding: 5px 2px; }
+.rpe-btns { display: flex; gap: 3px; justify-content: center; align-items: center; }
+.rpe-btns-hidden { visibility: hidden; pointer-events: none; }
+.rpe-btn { border-radius: 6px; padding: 4px 0; font-size: 0.82rem; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); cursor: pointer; flex: 1; line-height: 1; transition: all 0.12s; font-family: inherit; }
+.rpe-btn:active { transform: scale(0.9); }
+.rpe-btn.active { background: var(--orange); color: #fff; border-color: var(--orange); }
+body.dark .rpe-btn { background: #3A3A3C; border-color: rgba(255,255,255,0.15); color: #D1D1D6; }
+body.dark .rpe-btn.active { background: var(--orange); border-color: var(--orange); color: #fff; }
 
 /* ─── VOLUMEN MUSCULAR ─────────────────────────────────────────────────────── */
 .muscle-section { padding: 0 16px 20px; }
@@ -747,6 +750,24 @@ body.dark .load-routine-btn { background: #2C2C2E; border-color: rgba(255,255,25
 .schedule-day-routine { font-size: 8px; color: var(--orange); font-weight: 600; text-align: center; margin-top: 2px; line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 body.dark .schedule-panel { background: var(--surface); }
 body.dark .schedule-day.train { background: #3D2200; border-color: var(--orange-mid); }
+
+/* ─── RÉCORDS PERSONALES ────────────────────────────────────────────────────── */
+.prs-section { padding: 0 16px 24px; }
+.prs-section-title { font-size: 11px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; padding-left: 2px; }
+.prs-list { display: flex; flex-direction: column; gap: 0; }
+.pr-card { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--surface); border-radius: 12px; margin-bottom: 8px; border: 0.5px solid var(--border); }
+.pr-card-left { flex: 1; min-width: 0; }
+.pr-card-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: 12px; }
+.pr-ex-name { font-size: 0.9rem; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-ex-date { font-size: 0.75rem; color: var(--text3); margin-top: 2px; }
+.pr-kg { font-size: 1.1rem; font-weight: 800; color: var(--orange); }
+.pr-badge { font-size: 0.75rem; background: var(--orange-bg); color: var(--orange); border-radius: 8px; padding: 2px 6px; font-weight: 700; border: 1px solid var(--orange-mid); }
+body.dark .pr-card { background: var(--surface); }
+
+/* ─── SELECTOR GRÁFICA PROGRESIÓN ────────────────────────────────────────────── */
+.prog-select { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 0.85rem; color: var(--text); width: 100%; margin-bottom: 10px; font-family: inherit; outline: none; cursor: pointer; }
+.prog-select:focus { outline: 2px solid var(--orange); outline-offset: 1px; }
+body.dark .prog-select { background: #3A3A3C; border-color: rgba(255,255,255,0.15); color: #fff; }
 
 /* ─── COLLAPSIBLE SECTION HEADERS ────────────────────────────────────────── */
 .section-collapse-header { display: flex; justify-content: space-between; align-items: flex-start; padding: 16px 0 12px; cursor: pointer; user-select: none; }

@@ -4,6 +4,8 @@ const user = requireUser('index.html');
 let calYear, calMonth;
 // SECURITY: module-level cache for effective routine — populated async at render time, used sync in helpers
 let _libRoutine = null;
+let _libData = null;
+let _selectedProgressionExId = null;
 
 async function render() {
   document.getElementById('week-badge').textContent = formatTodayDate();
@@ -20,12 +22,14 @@ async function render() {
   document.getElementById('bib-sub').textContent =
     stats.totalDays > 0 ? `${stats.totalDays} días entrenados en total` : 'Aún sin sesiones registradas';
 
+  _libData = data;
   renderCalendar(data);
   renderSideStats(stats, data, schedule);
   // SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
   // await renderSchedulePanel();
   renderWeeklyVolumeComparison(data);
   renderProgressionChart(data);
+  renderPRsSection(data);
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
@@ -475,6 +479,11 @@ function handleDetailOverlayClick(e) {
 
 // ─── GRÁFICA DE PROGRESIÓN (SVG) ─────────────────────────────────────────────
 
+function selectProgressionEx(exId) {
+  _selectedProgressionExId = exId;
+  renderProgressionChart(_libData);
+}
+
 function renderProgressionChart(data) {
   const exerciseHistory = {};
   const allWeeks = Object.keys(data).sort();
@@ -500,20 +509,35 @@ function renderProgressionChart(data) {
     });
   });
 
-  // Most-trained exercise (most entries)
-  const mostTrained = Object.entries(exerciseHistory)
-    .sort(([, a], [, b]) => b.length - a.length)[0];
+  const eligibleExercises = Object.entries(exerciseHistory)
+    .filter(([, hist]) => hist.length >= 2)
+    .sort(([, a], [, b]) => b.length - a.length);
 
-  if (!mostTrained || mostTrained[1].length < 2) {
+  if (eligibleExercises.length === 0) {
     document.getElementById('prog-section').innerHTML = `
       <div class="prog-section-title">Tu progresión</div>
       <div class="prog-card"><div style="text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Entrena más veces para ver tu progresión</div></div>`;
     return;
   }
 
-  const [exId, fullHist] = mostTrained;
+  let selectedEntry;
+  if (_selectedProgressionExId && exerciseHistory[_selectedProgressionExId]?.length >= 2) {
+    selectedEntry = [_selectedProgressionExId, exerciseHistory[_selectedProgressionExId]];
+  } else {
+    selectedEntry = eligibleExercises[0];
+    _selectedProgressionExId = selectedEntry[0];
+  }
+
+  const [exId, fullHist] = selectedEntry;
   const hist = fullHist.slice(-10);
   const exName = getExName(exId);
+
+  const selectOpts = eligibleExercises.map(([eid, ehist]) => {
+    const ename = getExName(eid);
+    const sel = eid === exId ? ' selected' : '';
+    return `<option value="${escapeHTML(eid)}"${sel}>${escapeHTML(ename)} (${ehist.length})</option>`;
+  }).join('');
+  const selectHtml = `<select class="prog-select" onchange="selectProgressionEx(this.value)">${selectOpts}</select>`;
 
   const W = 280, H = 80, padL = 28, padR = 8, padT = 8, padB = 18;
   const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -553,6 +577,7 @@ function renderProgressionChart(data) {
   document.getElementById('prog-section').innerHTML = `
     <div class="prog-section-title">Tu progresión — ${escapeHTML(exName)}</div>
     <div class="prog-card" style="padding-bottom:14px">
+      ${selectHtml}
       <div style="margin-bottom:6px">${svgHtml}</div>
       <div class="prog-footer">
         <span style="font-size:12px;color:var(--text3)">${hist.length} registros</span>
@@ -732,6 +757,85 @@ async function toggleScheduleDay(dayKey) {
   await renderSchedulePanel();
 }
 */
+
+// ─── RÉCORDS PERSONALES ───────────────────────────────────────────────────────
+
+function renderPRsSection(data) {
+  const container = document.getElementById('prs-section');
+  if (!container) return;
+
+  const exBests = {};
+  const allWeeks = Object.keys(data).sort();
+
+  allWeeks.forEach(wk => {
+    DAYS.forEach(day => {
+      const dayData = data[wk]?.[day];
+      if (!dayData) return;
+      Object.entries(dayData).forEach(([exId, exData]) => {
+        if (exId.startsWith('_') || typeof exData !== 'object') return;
+        let maxKg = 0;
+        Object.entries(exData).forEach(([sk, sv]) => {
+          if (!sk.endsWith('_done') || !sv) return;
+          const idx = sk.replace('_done', '');
+          const kg = parseFloat(exData[`${idx}_kg`]) || 0;
+          if (kg > maxKg) maxKg = kg;
+        });
+        if (maxKg > 0 && (!exBests[exId] || maxKg > exBests[exId].maxKg)) {
+          exBests[exId] = { maxKg, wk, day };
+        }
+      });
+    });
+  });
+
+  const entries = Object.entries(exBests).sort(([, a], [, b]) => b.maxKg - a.maxKg).slice(0, 10);
+
+  if (entries.length === 0) {
+    container.innerHTML = `
+      <div class="prs-section-title">Mis Récords</div>
+      <div class="prog-card" style="text-align:center;padding:20px;color:var(--text3);font-size:14px">
+        Completa tu primer entreno para ver tus récords aquí
+      </div>`;
+    return;
+  }
+
+  const currentWk = getWeekKey();
+  const [curYearStr, curWeekStr] = currentWk.split('-W');
+  const curYear = parseInt(curYearStr), curWeekNum = parseInt(curWeekStr);
+
+  function weeksAgo(wk) {
+    const [y, wStr] = wk.split('-W');
+    return (curYear - parseInt(y)) * 52 + (curWeekNum - parseInt(wStr));
+  }
+
+  let html = `<div class="prs-section-title">Mis Récords</div><div class="prs-list">`;
+
+  entries.forEach(([exId, best]) => {
+    const name = getExName(exId);
+    const wa = weeksAgo(best.wk);
+    const isRecent = wa <= 1;
+    let dateStr;
+    if (wa === 0) dateStr = 'esta semana';
+    else if (wa === 1) dateStr = 'la semana pasada';
+    else if (wa <= 4) dateStr = `hace ${wa} semanas`;
+    else {
+      const [y, wStr2] = best.wk.split('-W');
+      dateStr = `sem. ${wStr2} de ${y}`;
+    }
+    html += `<div class="pr-card">
+      <div class="pr-card-left">
+        <div class="pr-ex-name">${escapeHTML(name)}</div>
+        <div class="pr-ex-date">${dateStr}</div>
+      </div>
+      <div class="pr-card-right">
+        <span class="pr-kg">${best.maxKg} kg</span>
+        ${isRecent ? '<span class="pr-badge">🏆</span>' : ''}
+      </div>
+    </div>`;
+  });
+
+  html += `</div>`;
+  container.innerHTML = html;
+}
 
 // ─── MISC ─────────────────────────────────────────────────────────────────────
 

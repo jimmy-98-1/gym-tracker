@@ -253,10 +253,21 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
     const refText = lastRep ? (lastKgNum > 0 ? `${lastKg}×${lastRep}` : `PC×${lastRep}`) : '—';
     const inputRo = (locked || (isDone && !isEditing) || (!sessionActive && !isSaved)) ? 'readonly' : '';
     const inputDis = (!sessionActive && !isSaved) ? 'disabled' : '';
-    const rpeRo   = locked ? 'readonly' : '';
-    const rpeDis  = (!isDone && !isEditing) ? 'disabled' : (locked ? 'disabled' : '');
     const checkClick = locked ? '' : `onclick="toggleSerie('${ex.id}',${i})"`;
     const checkStyle = (!sessionActive && !isSaved) ? ' style="pointer-events:none;opacity:0.4"' : '';
+    const showRpe = isDone || isEditing;
+    let rpeBtnsHtml;
+    if (!showRpe) {
+      rpeBtnsHtml = '<div class="rpe-btns rpe-btns-hidden"></div>';
+    } else {
+      const rpeVals = [['😤','6'],['💪','8'],['🔥','10']];
+      const btnItems = rpeVals.map(([emoji, val]) => {
+        const isActive = String(rpe) === val;
+        const clickAttr = locked ? '' : `onclick="setRpe('${ex.id}',${i},'${val}')"`;
+        return `<button class="rpe-btn${isActive ? ' active' : ''}" ${clickAttr}>${emoji}</button>`;
+      }).join('');
+      rpeBtnsHtml = `<div class="rpe-btns">${btnItems}</div>`;
+    }
     rows += `<div class="series-row" data-exid="${escapeHTML(ex.id)}" data-setidx="${i}">
       <span class="s-num">${i + 1}</span>
       <span class="s-ref ${refText === '—' ? 'empty' : ''}">${refText}</span>
@@ -265,8 +276,7 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
         oninput="updateSerie('${ex.id}',${i},'kg',this.value)" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${inputRo} ${inputDis}/>
       <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${escapeHTML(String(rep))}"
         oninput="updateSerie('${ex.id}',${i},'rep',this.value)" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${inputRo} ${inputDis}/>
-      <input class="s-input s-rpe${isDone ? ' completed' : ''}" type="number" inputmode="numeric" min="1" max="10" placeholder="RPE" value="${escapeHTML(String(rpe))}"
-        onchange="updateSerie('${ex.id}',${i},'rpe',this.value)" ${rpeDis} ${rpeRo}/>
+      ${rpeBtnsHtml}
       <div class="s-check${isDone ? ' done' : ''}${locked ? ' s-check-locked' : ''}" ${checkClick}${checkStyle}>
         <svg width="13" height="13" viewBox="0 0 13 13">
           <path d="M2 6.5l3.5 3.5 5.5-6" stroke="${isDone ? '#fff' : '#ccc'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
@@ -297,7 +307,7 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
     <div class="ex-meta-chips">
       <span class="meta-chip">🔁 ${effectiveSets} series</span>
       <span class="meta-chip">📊 ${escapeHTML(String(ex.reps))} reps</span>
-      <span class="meta-chip">🎯 RPE ${escapeHTML(String(ex.rpe))}</span>
+      <span class="meta-chip">${String(ex.rpe).includes('–') ? `🎯 Objetivo: RPE ${escapeHTML(String(ex.rpe))}` : `🎯 RPE ${escapeHTML(String(ex.rpe))}`}</span>
       <button class="meta-chip meta-chip-timer${restIsCustom ? ' custom' : ''}" data-exid="${escapeHTML(ex.id)}" data-rest="${escapeHTML(String(ex.rest))}" onclick="openRestPicker(this.dataset.exid,this.dataset.rest);event.stopPropagation()">⏱ ${escapeHTML(restDisplay)} ▾</button>
     </div>
     <div class="series-header">
@@ -305,7 +315,7 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
       <span class="sh-label" style="text-align:left">Sesión anterior</span>
       <span class="sh-label">kg</span>
       <span class="sh-label">reps</span>
-      <span class="sh-label">RPE</span>
+      <span class="sh-label">Esfuerzo</span>
       <span class="sh-label"></span>
     </div>
     ${rows}
@@ -321,6 +331,11 @@ async function updateSerie(exId, setIdx, field, value) {
   if (field === 'kg') value = value.replace(',', '.');
   data[wk][currentDay][exId][`s${setIdx}_${field}`] = value;
   await saveDataAndCache(user, data); // SECURITY: encrypt before writing to localStorage
+}
+
+async function setRpe(exId, setIdx, val) {
+  await updateSerie(exId, setIdx, 'rpe', val);
+  await render();
 }
 
 function isSessionActive() {
@@ -342,10 +357,8 @@ async function toggleSerie(exId, setIdx) {
   if (rowEl) {
     const kgInput  = rowEl.querySelector('.s-kg');
     const repInput = rowEl.querySelector('.s-rep');
-    const rpeInput = rowEl.querySelector('.s-rpe');
     if (kgInput  && !kgInput.readOnly) await updateSerie(exId, setIdx, 'kg',  kgInput.value.trim());
     if (repInput && repInput.value.trim() !== '') await updateSerie(exId, setIdx, 'rep', repInput.value.trim());
-    if (rpeInput && rpeInput.value.trim() !== '' && !rpeInput.disabled) await updateSerie(exId, setIdx, 'rpe', rpeInput.value.trim());
   }
 
   const data = await loadDataCached(user);
