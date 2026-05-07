@@ -845,3 +845,8 @@ function logout() {
 
 // SECURITY: async IIFE — ensures render() awaits decryption before any DOM writes
 render().catch(err => console.error('Biblioteca init error:', err));
+window.onerror = function(msg, src, line) {
+  document.body.insertAdjacentHTML('beforeend', 
+    `<div style="position:fixed;bottom:0;left:0;right:0;background:red;color:white;padding:10px;font-size:12px;z-index:9999">${msg} (línea ${line})</div>`
+  );
+};
