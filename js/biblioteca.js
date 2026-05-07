@@ -6,8 +6,7 @@ let calYear, calMonth;
 let _libRoutine = null;
 let _libData = null;
 let _selectedProgressionExId = null;
-let _progSectionOpen = true;
-let _prsSectionOpen = true;
+let _activeStatsTab = 'volumen'; // 'volumen' | 'progresion' | 'records'
 
 async function render() {
   document.getElementById('week-badge').textContent = formatTodayDate();
@@ -29,9 +28,7 @@ async function render() {
   renderSideStats(stats, data, schedule);
   // SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
   // await renderSchedulePanel();
-  renderWeeklyVolumeComparison(data);
-  renderProgressionChart(data);
-  renderPRsSection(data);
+  renderStatsSection(data);
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
@@ -262,10 +259,10 @@ function getDayKeyFromDate(date) {
   return DAYS[date.getDay() === 0 ? 6 : date.getDay() - 1];
 }
 
-function getDayStatus(date, data) {
+function getDayStatus(date, data, routine = null) {
   const wk = getWeekKeyFromDate(date);
   const dayKey = getDayKeyFromDate(date);
-  if (ROUTINE[dayKey]?.rest) return 'rest';
+  if ((routine || ROUTINE)[dayKey]?.rest) return 'rest';
   const dayData = data[wk]?.[dayKey];
   if (!dayData) return 'empty';
   if (dayData._saved) return 'complete';
@@ -289,7 +286,7 @@ function renderCalendar(data) {
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(calYear, calMonth, d);
     if (date > today) continue;
-    const status = getDayStatus(date, data);
+    const status = getDayStatus(date, data, _libRoutine);
     if (status === 'complete' || status === 'partial') {
       const vol = calcDayVolume(date, data);
       dayVols[d] = vol;
@@ -304,7 +301,7 @@ function renderCalendar(data) {
     const date = new Date(calYear, calMonth, d);
     const isToday = date.getTime() === today.getTime();
     const isFuture = date > today;
-    const status = isFuture ? 'future' : getDayStatus(date, data);
+    const status = isFuture ? 'future' : getDayStatus(date, data, _libRoutine);
     const tappable = !isFuture && (status === 'complete' || status === 'partial');
 
     let bgStyle = '', numStyle = '', checkStyle = '';
@@ -380,7 +377,7 @@ async function openDayDetail(y, m, d) {
   const wk = getWeekKeyFromDate(date);
   const dayKey = getDayKeyFromDate(date);
   // SECURITY: decrypt workout data and routine via session key
-  const data = await loadData(user);
+  const data = _libData || await loadData(user);
   const dayData = data[wk]?.[dayKey];
 
   if (!dayData || (!hasDoneData(dayData) && !dayData._saved)) return;
@@ -483,20 +480,15 @@ function handleDetailOverlayClick(e) {
 
 function selectProgressionEx(exId) {
   _selectedProgressionExId = exId;
-  renderProgressionChart(_libData);
+  renderStatsSection(_libData);
 }
 
-function toggleProgSection() {
-  _progSectionOpen = !_progSectionOpen;
-  renderProgressionChart(_libData);
+function switchStatsTab(tab) {
+  _activeStatsTab = tab;
+  renderStatsSection(_libData);
 }
 
-function togglePrsSection() {
-  _prsSectionOpen = !_prsSectionOpen;
-  renderPRsSection(_libData);
-}
-
-function renderProgressionChart(data) {
+function _buildProgressionHtml(data) {
   const exerciseHistory = {};
   const allWeeks = Object.keys(data).sort();
 
@@ -525,16 +517,8 @@ function renderProgressionChart(data) {
     .filter(([, hist]) => hist.length >= 2)
     .sort(([, a], [, b]) => b.length - a.length);
 
-  const chevron = _progSectionOpen ? '▲' : '▼';
-  const headerHtml = `<div class="bib-section-header" onclick="toggleProgSection()">
-    <h2 class="bib-section-title-orange">Tu Progresión</h2>
-    <span class="section-chevron">${chevron}</span>
-  </div>`;
-
   if (eligibleExercises.length === 0) {
-    document.getElementById('prog-section').innerHTML = headerHtml +
-      (_progSectionOpen ? `<div class="prog-card"><div style="text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Entrena más veces para ver tu progresión</div></div>` : '');
-    return;
+    return `<div class="prog-card"><div style="text-align:center;padding:20px 0;color:var(--text3);font-size:13px">Entrena más veces para ver tu progresión</div></div>`;
   }
 
   let selectedEntry;
@@ -591,26 +575,17 @@ function renderProgressionChart(data) {
   const trendDir = latest.maxKg > prev.maxKg ? 'up' : latest.maxKg < prev.maxKg ? 'down' : 'eq';
   const trendIcon = { up: '↑', down: '↓', eq: '–' }[trendDir];
 
-  if (!_progSectionOpen) {
-    const previewName = escapeHTML(exName);
-    const previewKg = latest.maxKg;
-    document.getElementById('prog-section').innerHTML = headerHtml +
-      `<div class="bib-section-preview">${previewName} · ${previewKg} kg</div>`;
-    return;
-  }
-
-  document.getElementById('prog-section').innerHTML = headerHtml +
-    `<div class="prog-card" style="padding-bottom:14px">
-      ${selectHtml}
-      <div style="margin-bottom:6px">${svgHtml}</div>
-      <div class="prog-footer">
-        <span style="font-size:12px;color:var(--text3)">${hist.length} registros</span>
-        <div class="prog-right">
-          <span class="prog-best">${latest.maxKg} kg</span>
-          <span class="prog-trend ${trendDir}">${trendIcon}</span>
-        </div>
+  return `<div class="prog-card" style="padding-bottom:14px">
+    ${selectHtml}
+    <div style="margin-bottom:6px">${svgHtml}</div>
+    <div class="prog-footer">
+      <span style="font-size:12px;color:var(--text3)">${hist.length} registros</span>
+      <div class="prog-right">
+        <span class="prog-best">${latest.maxKg} kg</span>
+        <span class="prog-trend ${trendDir}">${trendIcon}</span>
       </div>
-    </div>`;
+    </div>
+  </div>`;
 }
 
 // ─── VOLUMEN SEMANAL COMPARADO + PRs ─────────────────────────────────────────
@@ -682,7 +657,7 @@ function findRecentPRs(data) {
   return prs.slice(0, 3);
 }
 
-function renderWeeklyVolumeComparison(data) {
+function _buildVolumenHtml(data) {
   const wk = getWeekKey();
   const prevD = new Date(); prevD.setDate(prevD.getDate() - 7);
   const prevWk = getWeekKeyFromDate(prevD);
@@ -693,47 +668,30 @@ function renderWeeklyVolumeComparison(data) {
 
   const entries = Object.entries(thisWeek).sort(([, a], [, b]) => b - a);
 
-  let html = '';
+  if (entries.length === 0) {
+    return `<div class="prog-card" style="text-align:center;padding:20px;color:var(--text3);font-size:14px">Entrena esta semana para ver tu volumen por grupo muscular</div>`;
+  }
 
-  if (entries.length > 0) {
-    html += `<div class="muscle-section-title">Volumen semanal</div><div class="muscle-card">`;
-    entries.forEach(([group, vol]) => {
-      const prev = prevWeek[group] || 0;
-      let arrow = '→', arrowClass = 'vol-eq', pctStr = '';
-      if (prev > 0) {
-        const pct = (vol - prev) / prev * 100;
-        if (Math.abs(pct) >= 1) {
-          if (pct > 0) { arrow = '↑'; arrowClass = 'vol-up'; pctStr = `+${Math.round(pct)}%`; }
-          else { arrow = '↓'; arrowClass = 'vol-down'; pctStr = `${Math.round(pct)}%`; }
-        }
+  let html = `<div class="muscle-card">`;
+  entries.forEach(([group, vol]) => {
+    const prev = prevWeek[group] || 0;
+    let arrow = '→', arrowClass = 'vol-eq', pctStr = '';
+    if (prev > 0) {
+      const pct = (vol - prev) / prev * 100;
+      if (Math.abs(pct) >= 1) {
+        if (pct > 0) { arrow = '↑'; arrowClass = 'vol-up'; pctStr = `+${Math.round(pct)}%`; }
+        else { arrow = '↓'; arrowClass = 'vol-down'; pctStr = `${Math.round(pct)}%`; }
       }
-      const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : Math.round(vol) + 'kg';
-      html += `<div class="vol-row">
-        <span class="vol-group">${escapeHTML(group)}</span>
-        <span class="vol-amount">${volStr}</span>
-        <span class="vol-arrow ${arrowClass}">${arrow}${pctStr ? ' ' + pctStr : ''}</span>
-      </div>`;
-    });
-    html += `</div>`;
-  }
-
-  // Recent PRs
-  const recentPRs = findRecentPRs(data);
-  if (recentPRs.length > 0) {
-    html += `<div class="muscle-section-title" style="margin-top:16px">Récords recientes 🏆</div>
-      <div class="muscle-card">`;
-    recentPRs.forEach(pr => {
-      const name = getExName(pr.exId);
-      html += `<div class="vol-row">
-        <span class="vol-group" style="flex:1;font-size:13px">${escapeHTML(name)}</span>
-        <span class="vol-amount">${pr.kg} kg</span>
-        <span class="vol-arrow vol-up">↑ PR</span>
-      </div>`;
-    });
-    html += `</div>`;
-  }
-
-  document.getElementById('muscle-section').innerHTML = html || '';
+    }
+    const volStr = vol >= 1000 ? (vol / 1000).toFixed(1) + 't' : Math.round(vol) + 'kg';
+    html += `<div class="vol-row">
+      <span class="vol-group">${escapeHTML(group)}</span>
+      <span class="vol-amount">${volStr}</span>
+      <span class="vol-arrow ${arrowClass}">${arrow}${pctStr ? ' ' + pctStr : ''}</span>
+    </div>`;
+  });
+  html += `</div>`;
+  return html;
 }
 
 // SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
@@ -784,10 +742,7 @@ async function toggleScheduleDay(dayKey) {
 
 // ─── RÉCORDS PERSONALES ───────────────────────────────────────────────────────
 
-function renderPRsSection(data) {
-  const container = document.getElementById('prs-section');
-  if (!container) return;
-
+function _buildRecordsHtml(data) {
   const exBests = {};
   const allWeeks = Object.keys(data).sort();
 
@@ -813,16 +768,8 @@ function renderPRsSection(data) {
 
   const entries = Object.entries(exBests).sort(([, a], [, b]) => b.maxKg - a.maxKg).slice(0, 10);
 
-  const prsChevron = _prsSectionOpen ? '▲' : '▼';
-  const prsHeaderHtml = `<div class="bib-section-header" onclick="togglePrsSection()">
-    <h2 class="bib-section-title-orange">Mis Récords 🏆</h2>
-    <span class="section-chevron">${prsChevron}</span>
-  </div>`;
-
   if (entries.length === 0) {
-    container.innerHTML = prsHeaderHtml +
-      (_prsSectionOpen ? `<div class="prog-card" style="text-align:center;padding:20px;color:var(--text3);font-size:14px">Completa tu primer entreno para ver tus récords aquí</div>` : '');
-    return;
+    return `<div class="prog-card" style="text-align:center;padding:20px;color:var(--text3);font-size:14px">Completa tu primer entreno para ver tus récords aquí</div>`;
   }
 
   const currentWk = getWeekKey();
@@ -834,22 +781,7 @@ function renderPRsSection(data) {
     return (curYear - parseInt(y)) * 52 + (curWeekNum - parseInt(wStr));
   }
 
-  if (!_prsSectionOpen) {
-    const [firstExId, firstBest] = entries[0];
-    const firstName = getExName(firstExId);
-    const wa = weeksAgo(firstBest.wk);
-    let firstDateStr;
-    if (wa === 0) firstDateStr = 'esta semana';
-    else if (wa === 1) firstDateStr = 'la semana pasada';
-    else if (wa <= 4) firstDateStr = `hace ${wa} semanas`;
-    else { const [y, wStr2] = firstBest.wk.split('-W'); firstDateStr = `sem. ${wStr2} de ${y}`; }
-    container.innerHTML = prsHeaderHtml +
-      `<div class="bib-section-preview">${escapeHTML(firstName)} · ${firstBest.maxKg} kg — ${firstDateStr}</div>`;
-    return;
-  }
-
-  let html = prsHeaderHtml + `<div class="prs-list">`;
-
+  let html = `<div class="prs-list">`;
   entries.forEach(([exId, best]) => {
     const name = getExName(exId);
     const wa = weeksAgo(best.wk);
@@ -873,9 +805,35 @@ function renderPRsSection(data) {
       </div>
     </div>`;
   });
-
   html += `</div>`;
-  container.innerHTML = html;
+  return html;
+}
+
+function renderStatsSection(data) {
+  const container = document.getElementById('stats-section');
+  if (!container) return;
+
+  const tabs = [
+    { id: 'volumen',    label: '📊 Volumen' },
+    { id: 'progresion', label: '📈 Progresión' },
+    { id: 'records',    label: '🏆 Récords' },
+  ];
+
+  const tabsHtml = tabs.map(t => {
+    const active = _activeStatsTab === t.id ? ' active' : '';
+    return `<button class="stats-tab${active}" onclick="switchStatsTab('${t.id}')">${t.label}</button>`;
+  }).join('');
+
+  let contentHtml = '';
+  if (_activeStatsTab === 'volumen') contentHtml = _buildVolumenHtml(data);
+  else if (_activeStatsTab === 'progresion') contentHtml = _buildProgressionHtml(data);
+  else if (_activeStatsTab === 'records') contentHtml = _buildRecordsHtml(data);
+
+  container.innerHTML = `
+    <div class="stats-section-title">Mis Stats</div>
+    <div class="stats-tabs">${tabsHtml}</div>
+    <div class="stats-tab-content">${contentHtml}</div>
+  `;
 }
 
 // ─── MISC ─────────────────────────────────────────────────────────────────────

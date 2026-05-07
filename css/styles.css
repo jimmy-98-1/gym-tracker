@@ -793,3 +793,15 @@ body.dark .prog-select { background: #3A3A3C; border-color: rgba(255,255,255,0.1
 .bib-section-header { display: flex; justify-content: space-between; align-items: center; cursor: pointer; padding: 16px 0 8px; border-top: 1px solid var(--border); user-select: none; }
 .bib-section-header:active { opacity: 0.7; }
 .bib-section-preview { font-size: 0.8rem; color: var(--text3); padding-bottom: 12px; }
+
+/* ─── MIS STATS (tabs) ─────────────────────────────────────────────────────── */
+.stats-section { margin-top: 20px; padding: 0 16px 32px; }
+.stats-section-title { font-size: 1.3rem; font-weight: 800; color: var(--orange); margin-bottom: 14px; }
+.stats-tabs { display: flex; gap: 8px; margin-bottom: 16px; overflow-x: auto; scrollbar-width: none; }
+.stats-tabs::-webkit-scrollbar { display: none; }
+.stats-tab { padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: none; white-space: nowrap; transition: background 0.15s, color 0.15s; font-family: inherit; }
+.stats-tab.active { background: #FF6B35; color: #fff; }
+.stats-tab:not(.active) { background: var(--surface2); color: var(--text2); }
+.stats-tab-content { animation: statsFadeIn 0.2s ease; }
+@keyframes statsFadeIn { from { opacity: 0; } to { opacity: 1; } }
+body.dark .stats-tab:not(.active) { background: #3A3A3C; color: #D1D1D6; }

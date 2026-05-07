@@ -56,7 +56,7 @@ function renderPage() {
       section.insertBefore(headerEl, container);
     }
     headerEl.innerHTML = `<div>
-        <div class="section-title">Configuración semanal</div>
+        <div class="bib-section-title-orange">Configuración semanal</div>
         <div class="section-sub">Personaliza los días y ejercicios de tu semana</div>
       </div>
       <span class="rut-chevron section-chevron">${weeklyConfigOpen ? '▲' : '▼'}</span>`;
@@ -485,7 +485,7 @@ function renderUserRoutines() {
   let html = `<div class="user-routines-section">
     <div class="section-collapse-header" onclick="toggleMyRoutines()">
       <div>
-        <div class="section-title">Mis Rutinas</div>
+        <div class="bib-section-title-orange">Mis Rutinas</div>
         <div class="section-sub">${subText}</div>
       </div>
       <div style="display:flex;align-items:center;gap:8px">

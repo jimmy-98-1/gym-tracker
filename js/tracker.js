@@ -113,6 +113,13 @@ async function render() {
     const wk = getWeekKey();
     if (!data[wk]) { data[wk] = {}; await saveDataAndCache(user, data); }
 
+    // Restore persisted setsOverrides when session is saved and not editing
+    const _dayData = data[wk][currentDay] || {};
+    if (_dayData._setsOverrides && _dayData._saved && !_editing) {
+      Object.assign(_setsOverrides, _dayData._setsOverrides);
+      saveOverridesToSession();
+    }
+
     const weekNum = await getWeekNumber(user);
     document.getElementById('week-badge').textContent = formatTodayDate();
 
@@ -305,7 +312,6 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
     <div class="ex-meta-chips">
       <span class="meta-chip">🔁 ${effectiveSets} series</span>
       <span class="meta-chip">📊 ${escapeHTML(String(ex.reps))} reps</span>
-      <span class="meta-chip">${String(ex.rpe).includes('–') ? `🎯 Objetivo: RPE ${escapeHTML(String(ex.rpe))}` : `🎯 RPE ${escapeHTML(String(ex.rpe))}`}</span>
       <button class="meta-chip meta-chip-timer${restIsCustom ? ' custom' : ''}" data-exid="${escapeHTML(ex.id)}" data-rest="${escapeHTML(String(ex.rest))}" onclick="openRestPicker(this.dataset.exid,this.dataset.rest);event.stopPropagation()">⏱ ${escapeHTML(restDisplay)} ▾</button>
     </div>
     <div class="series-header">
@@ -397,6 +403,11 @@ async function saveSession() {
   data[wk][currentDay]._saved = true;
   data[wk][currentDay]._sessionName = R[currentDay]?.name ?? '';
   data[wk][currentDay]._sessionExercises = (R[currentDay]?.exercises || []).map(e => e.id);
+  if (Object.keys(_setsOverrides).length > 0) {
+    data[wk][currentDay]._setsOverrides = { ..._setsOverrides };
+  } else {
+    delete data[wk][currentDay]._setsOverrides;
+  }
   await saveDataAndCache(user, data);
   _cachedData = null;
   showToast('Sesión guardada 💪');
@@ -410,9 +421,15 @@ async function unlockSession() {
 
 async function cancelEdit() {
   _editing = false;
-  _cachedData = null;
   _setsOverrides = {};
   saveOverridesToSession();
+  const data = await loadDataCached(user);
+  const wk = getWeekKey();
+  if (data[wk]?.[currentDay]) {
+    delete data[wk][currentDay]._setsOverrides;
+    await saveDataAndCache(user, data);
+  }
+  _cachedData = null;
   await render();
 }
 
@@ -742,7 +759,17 @@ function unlockAudioContext() {
   try {
     if (_audioCtx && _audioCtx.state === 'running') return;
     if (!_audioCtx) {
-      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
+      if (!_audioCtx._deviceListenerAdded) {
+        _audioCtx._deviceListenerAdded = true;
+        if (navigator.mediaDevices?.addEventListener) {
+          navigator.mediaDevices.addEventListener('devicechange', () => {
+            if (_audioCtx && _audioCtx.state === 'suspended') {
+              _audioCtx.resume().catch(() => {});
+            }
+          });
+        }
+      }
     }
     if (_audioCtx.state === 'suspended') {
       _audioCtx.resume();
@@ -760,17 +787,19 @@ function unlockAudioContext() {
   } catch(e) {}
 }
 
-function playBeep() {
+async function playBeep() {
   try {
     if (!_audioCtx) return;
-    if (_audioCtx.state === 'suspended') _audioCtx.resume();
+    if (_audioCtx.state === 'suspended') {
+      await _audioCtx.resume();
+    }
     const osc = _audioCtx.createOscillator();
     const gain = _audioCtx.createGain();
     osc.connect(gain);
     gain.connect(_audioCtx.destination);
     osc.frequency.value = 880;
     osc.type = 'sine';
-    gain.gain.setValueAtTime(0.3, _audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.7, _audioCtx.currentTime);
     gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 0.3);
     osc.start(_audioCtx.currentTime);
     osc.stop(_audioCtx.currentTime + 0.3);
