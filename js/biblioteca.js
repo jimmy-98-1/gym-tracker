@@ -117,7 +117,8 @@ function calcDayVolume(date, data) {
 function calcMonthProgress(data, schedule = null) {
   const now = new Date();
   const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
-  let trained = 0, total = 0;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  let trained = 0;
   for (let d = 1; d <= today; d++) {
     const date = new Date(year, month, d);
     const dayKey = getDayKeyFromDate(date);
@@ -125,12 +126,11 @@ function calcMonthProgress(data, schedule = null) {
       ? schedule[dayKey] === 'rest'
       : !!ROUTINE[dayKey]?.rest;
     if (isRest) continue;
-    total++;
     const wk = getWeekKeyFromDate(date);
     const dayData = data[wk]?.[dayKey];
     if (dayData?._saved || hasDoneData(dayData)) trained++;
   }
-  return { trained, total };
+  return { trained, total: daysInMonth };
 }
 
 // ─── CAROUSEL GAMIFICACIÓN ────────────────────────────────────────────────────
@@ -208,24 +208,19 @@ function renderSideStats(s, data, schedule) {
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--orange)" stroke-width="${sw}"
       stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
       stroke-linecap="round" transform="rotate(-90 ${cx} ${cy})"/>
-    <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="9" font-weight="800"
-      fill="var(--text)" font-family="-apple-system,sans-serif">${mp.trained}/${mp.total}</text>
   </svg>`;
 
-  const hot = s.currentStreak >= 5;
-  const streakIcon = s.currentStreak >= 7 ? '🔥' : s.currentStreak >= 5 ? '🔥' : '🏃';
-
   document.getElementById('side-stats').innerHTML = `
-    <div class="sstat-row">
-      <div class="sstat-card${hot ? ' sstat-streak-hot' : ''}" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
-        <div class="sstat-icon">${streakIcon}</div>
-        <div class="sstat-val">${s.currentStreak}</div>
-        <div class="sstat-label">Racha actual</div>
-        ${hot ? '<div class="streak-fire-bar"></div>' : ''}
-      </div>
-      <div class="sstat-card sstat-circ" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
-        ${circleSvg}
-        <div class="sstat-label" style="margin-top:3px">Este mes</div>
+    <div class="sstat-card sstat-month-card" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
+      <div class="sstat-month-inner">
+        <div class="sstat-circle-wrap">
+          ${circleSvg}
+          <span class="fire-emoji">🔥</span>
+        </div>
+        <div class="sstat-month-text">
+          <div class="sstat-val">${mp.trained}/${mp.total}</div>
+          <div class="sstat-label">días entrenados este mes</div>
+        </div>
       </div>
     </div>
     <div class="sstat-card" onclick="this.classList.add('sstat-tap');setTimeout(()=>this.classList.remove('sstat-tap'),150)">
@@ -402,7 +397,14 @@ async function openDayDetail(y, m, d) {
 
     const routineEx = exercises.find(e => e.id === exId);
     const exName = routineEx?.name ?? getExName(exId);
-    const setsToCheck = routineEx?.sets ?? 20;
+    let setsToCheck = routineEx?.sets;
+    if (!setsToCheck) {
+      setsToCheck = 0;
+      Object.keys(exData).forEach(k => {
+        const m = k.match(/^s(\d+)_done$/);
+        if (m) setsToCheck = Math.max(setsToCheck, parseInt(m[1]) + 1);
+      });
+    }
 
     let sets = [];
     let anyDone = false;

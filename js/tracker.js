@@ -277,7 +277,6 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
       <span class="s-num">${i + 1}</span>
       <span class="s-ref ${refText === '—' ? 'empty' : ''}">${refText}</span>
       <input class="s-input s-kg${isDone ? ' completed' : ''}" type="text" inputmode="decimal" placeholder="kg" value="${escapeHTML(String(kg))}"
-        onclick="showPlateCalc(this)"
         oninput="updateSerie('${ex.id}',${i},'kg',this.value)" onchange="updateSerie('${ex.id}',${i},'kg',this.value)" ${inputRo} ${inputDis}/>
       <input class="s-input s-rep${isDone ? ' completed' : ''}" type="number" inputmode="numeric" placeholder="rep" value="${escapeHTML(String(rep))}"
         oninput="updateSerie('${ex.id}',${i},'rep',this.value)" onchange="updateSerie('${ex.id}',${i},'rep',this.value)" ${inputRo} ${inputDis}/>
@@ -301,8 +300,6 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
     <div class="ex-card-header">
       <div class="ex-name">${ex.name}</div>
       <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;margin-left:6px;margin-top:1px">
-        ${canModify ? `<button class="sets-adj-btn" onclick="swapExInSession('${ex.id}');event.stopPropagation()" aria-label="Cambiar ejercicio" style="font-size:13px">🔄</button>` : ''}
-        ${canModify ? `<button class="sets-adj-btn" onclick="removeExFromSession('${ex.id}');event.stopPropagation()" aria-label="Eliminar ejercicio" style="color:#e53935;font-weight:700">✕</button>` : ''}
         <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',-1);event.stopPropagation()" aria-label="Quitar serie" ${locked ? 'disabled' : ''}>−</button>
         <button class="sets-adj-btn" onclick="adjustSets('${ex.id}',+1);event.stopPropagation()" aria-label="Añadir serie" ${locked ? 'disabled' : ''}>+</button>
         <button class="ex-info-btn" onclick="showTechnique('${ex.id}','${ex.name.replace(/'/g,"&#39;")}','${noteEsc}');event.stopPropagation()" aria-label="Técnica">💡</button>
@@ -323,6 +320,10 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
       <span class="sh-label"></span>
     </div>
     ${rows}
+    ${canModify ? `<div class="ex-card-actions">
+      <button class="ex-action-btn ex-action-swap" onclick="swapExInSession('${ex.id}');event.stopPropagation()">🔄 Cambiar ejercicio</button>
+      <button class="ex-action-btn ex-action-del" onclick="removeExFromSession('${ex.id}');event.stopPropagation()">🗑 Eliminar</button>
+    </div>` : ''}
   </div>`;
 }
 
@@ -941,72 +942,6 @@ function saveTimerState(exName, totalSecs, paused) {
 
 function clearTimerState() {
   sessionStorage.removeItem(TIMER_STATE_KEY);
-}
-
-// ─── PLATE CALCULATOR ─────────────────────────────────────────────────────────
-
-function calculatePlates(totalKg, barKg = 20) {
-  const perSide = (totalKg - barKg) / 2;
-  if (perSide < 0) return null;
-  const plateTypes = [20, 15, 10, 5, 2.5, 1.25];
-  const result = [];
-  let rem = perSide;
-  for (const p of plateTypes) {
-    const count = Math.floor(rem / p + 0.0001);
-    if (count > 0) { result.push({ kg: p, count }); rem -= count * p; }
-  }
-  return { perSide, plates: result };
-}
-
-let _plateDismissHandler = null;
-
-function showPlateCalc(inputEl) {
-  const val = parseFloat(String(inputEl.value).replace(',', '.'));
-  if (!val || val <= 0) { hidePlateCalc(); return; }
-
-  const result = calculatePlates(val);
-  const popover = document.getElementById('plate-popover');
-  const content = document.getElementById('plate-popover-content');
-
-  if (!result) {
-    content.innerHTML = `<div class="pc-note">Peso menor que la barra (20 kg)</div>`;
-  } else {
-    let html = `<div class="pc-title">${val} kg — Distribución</div>`;
-    html += `<div class="pc-row"><span class="pc-label">Barra</span><span class="pc-val">20 kg</span></div>`;
-    if (result.plates.length > 0) {
-      html += `<div class="pc-divider"></div><div class="pc-label-sm">Cada lado:</div>`;
-      result.plates.forEach(p => {
-        html += `<div class="pc-row"><span class="pc-label">${p.count} × ${p.kg} kg</span><span class="pc-val">${(p.count * p.kg).toFixed(2).replace(/\.?0+$/, '')} kg</span></div>`;
-      });
-    } else {
-      html += `<div class="pc-note">Solo la barra</div>`;
-    }
-    content.innerHTML = html;
-  }
-
-  const rect = inputEl.getBoundingClientRect();
-  const popW = 200;
-  let left = rect.left;
-  if (left + popW > window.innerWidth - 8) left = window.innerWidth - popW - 8;
-  popover.style.left = left + 'px';
-  popover.style.top = (rect.bottom + window.scrollY + 8) + 'px';
-  popover.classList.add('open');
-
-  if (_plateDismissHandler) document.removeEventListener('click', _plateDismissHandler);
-  _plateDismissHandler = function(e) {
-    if (!e.target.closest('#plate-popover') && !e.target.classList.contains('s-kg')) {
-      hidePlateCalc();
-    }
-  };
-  setTimeout(() => document.addEventListener('click', _plateDismissHandler), 0);
-}
-
-function hidePlateCalc() {
-  document.getElementById('plate-popover').classList.remove('open');
-  if (_plateDismissHandler) {
-    document.removeEventListener('click', _plateDismissHandler);
-    _plateDismissHandler = null;
-  }
 }
 
 // ─── PR DETECTION ─────────────────────────────────────────────────────────────

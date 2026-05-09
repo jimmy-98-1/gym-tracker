@@ -390,16 +390,19 @@ body.dark .pass-strength-bar { background: #48484A; }
 .timer-fab-btn:hover { background: rgba(255,255,255,0.22); }
 .timer-fab-close { background: rgba(255,255,255,0.07); }
 
-/* ─── PLATE CALCULATOR POPOVER ───────────────────────────────────────────────── */
-.plate-popover { position: absolute; z-index: 300; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px; min-width: 190px; box-shadow: 0 8px 24px rgba(0,0,0,0.15); display: none; }
-.plate-popover.open { display: block; }
-.pc-title { font-size: 12px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
-.pc-row { display: flex; justify-content: space-between; align-items: center; padding: 3px 0; }
-.pc-label { font-size: 13px; color: var(--text2); font-weight: 500; }
-.pc-val { font-size: 13px; color: var(--text); font-weight: 700; }
-.pc-label-sm { font-size: 11px; color: var(--text3); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin: 6px 0 3px; }
-.pc-divider { height: 1px; background: var(--border); margin: 6px 0; }
-.pc-note { font-size: 12px; color: var(--text3); padding: 4px 0; }
+/* ─── EX CARD ACTIONS FOOTER ─────────────────────────────────────────────────── */
+.ex-card-actions { display: flex; gap: 8px; margin-top: 10px; padding-top: 10px; border-top: 0.5px solid var(--border); }
+.ex-action-btn { flex: 1; padding: 9px 0; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: pointer; border: 0.5px solid var(--border); background: var(--surface2); color: var(--text2); font-family: inherit; transition: all 0.15s; }
+.ex-action-del { color: #e53935; border-color: rgba(229,57,53,0.25); background: #FFF5F5; }
+body.dark .ex-action-del { background: #2D1A1A; border-color: rgba(255,69,58,0.3); color: #FF453A; }
+
+/* ─── SSTAT ESTE MES (card full-width con layout horizontal) ─────────────────── */
+.sstat-month-card { padding: 12px 14px; }
+.sstat-month-inner { display: flex; align-items: center; gap: 12px; }
+.sstat-month-text { display: flex; flex-direction: column; gap: 3px; }
+.sstat-circle-wrap { position: relative; flex-shrink: 0; }
+@keyframes fire-anim { 0%, 100% { transform: scale(1) translateY(0); opacity: 1; } 50% { transform: scale(1.2) translateY(-2px); opacity: 0.75; } }
+.fire-emoji { position: absolute; bottom: -2px; right: -4px; font-size: 13px; line-height: 1; animation: fire-anim 1.2s ease-in-out infinite; pointer-events: none; }
 
 /* ─── SET FLASH ANIMATION ────────────────────────────────────────────────────── */
 @keyframes flash-green { 0% { background: transparent; } 25% { background: rgba(76,175,80,0.25); } 60% { background: rgba(76,175,80,0.12); } 100% { background: transparent; } }
