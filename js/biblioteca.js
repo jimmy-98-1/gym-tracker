@@ -35,35 +35,15 @@ async function render() {
 
 function calcStats(data, weeks, schedule) {
   let totalDays = 0;
-  let totalSeries = 0;
   let totalKg = 0;
-  let currentStreak = 0;
   let bestWeekSessions = 0;
-
-  const today = new Date();
-  let checkDate = new Date(today);
-  let streakRunning = true;
-  for (let i = 0; i < 90 && streakRunning; i++) {
-    const d = new Date(checkDate);
-    d.setDate(d.getDate() - i);
-    const wk = getWeekKeyFromDate(d);
-    const dayKey = getDayKeyFromDate(d);
-    // Use user schedule if available, otherwise fall back to base ROUTINE
-    const dayType = schedule ? (schedule[dayKey] || (ROUTINE[dayKey]?.rest ? 'rest' : 'train')) : (ROUTINE[dayKey]?.rest ? 'rest' : 'train');
-    if (dayType === 'rest') continue;
-    const dayData = data[wk]?.[dayKey];
-    if (dayData?._saved || hasDoneData(dayData)) {
-      currentStreak++;
-    } else if (i > 0) {
-      streakRunning = false;
-    }
-  }
 
   weeks.forEach(wk => {
     let weekSessions = 0;
     DAYS.forEach(day => {
       const dayData = data[wk]?.[day];
-      if (!dayData || ROUTINE[day]?.rest) return;
+      const isRest = schedule ? (schedule[day] === 'rest') : !!ROUTINE[day]?.rest;
+      if (!dayData || isRest) return;
       if (!hasDoneData(dayData)) return;
       totalDays++;
       weekSessions++;
@@ -71,7 +51,6 @@ function calcStats(data, weeks, schedule) {
         if (k === '_saved' || k === '_notes' || typeof v !== 'object') return;
         Object.entries(v).forEach(([sk, sv]) => {
           if (!sk.endsWith('_done') || !sv) return;
-          totalSeries++;
           const setIdx = sk.replace('_done', '');
           const kg = parseFloat(v[`${setIdx}_kg`]) || 0;
           const rep = parseInt(v[`${setIdx}_rep`]) || 0;
@@ -82,7 +61,7 @@ function calcStats(data, weeks, schedule) {
     if (weekSessions > bestWeekSessions) bestWeekSessions = weekSessions;
   });
 
-  return { totalDays, totalSeries, totalKg: Math.round(totalKg), currentStreak, bestWeekSessions, weeks: weeks.length };
+  return { totalDays, totalKg: Math.round(totalKg), bestWeekSessions };
 }
 
 function hasDoneData(dayData) {
@@ -119,18 +98,22 @@ function calcMonthProgress(data, schedule = null) {
   const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   let trained = 0;
-  for (let d = 1; d <= today; d++) {
+  let trainingDaysInMonth = 0;
+  for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(year, month, d);
     const dayKey = getDayKeyFromDate(date);
     const isRest = schedule && schedule[dayKey]
       ? schedule[dayKey] === 'rest'
       : !!ROUTINE[dayKey]?.rest;
     if (isRest) continue;
-    const wk = getWeekKeyFromDate(date);
-    const dayData = data[wk]?.[dayKey];
-    if (dayData?._saved || hasDoneData(dayData)) trained++;
+    trainingDaysInMonth++;
+    if (d <= today) {
+      const wk = getWeekKeyFromDate(date);
+      const dayData = data[wk]?.[dayKey];
+      if (dayData?._saved || hasDoneData(dayData)) trained++;
+    }
   }
-  return { trained, total: daysInMonth };
+  return { trained, total: trainingDaysInMonth };
 }
 
 // ─── CAROUSEL GAMIFICACIÓN ────────────────────────────────────────────────────
@@ -257,10 +240,11 @@ function getDayKeyFromDate(date) {
 function getDayStatus(date, data, routine = null) {
   const wk = getWeekKeyFromDate(date);
   const dayKey = getDayKeyFromDate(date);
-  if ((routine || ROUTINE)[dayKey]?.rest) return 'rest';
   const dayData = data[wk]?.[dayKey];
+  // A saved day is always complete — truth is in the data, not the routine template
+  if (dayData?._saved) return 'complete';
+  if ((routine || ROUTINE)[dayKey]?.rest) return 'rest';
   if (!dayData) return 'empty';
-  if (dayData._saved) return 'complete';
   if (hasDoneData(dayData)) return 'partial';
   return 'empty';
 }

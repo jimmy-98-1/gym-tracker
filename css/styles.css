@@ -402,7 +402,7 @@ body.dark .ex-action-del { background: #2D1A1A; border-color: rgba(255,69,58,0.3
 .sstat-month-text { display: flex; flex-direction: column; gap: 3px; }
 .sstat-circle-wrap { position: relative; flex-shrink: 0; }
 @keyframes fire-anim { 0%, 100% { transform: scale(1) translateY(0); opacity: 1; } 50% { transform: scale(1.2) translateY(-2px); opacity: 0.75; } }
-.fire-emoji { position: absolute; bottom: -2px; right: -4px; font-size: 13px; line-height: 1; animation: fire-anim 1.2s ease-in-out infinite; pointer-events: none; }
+.fire-emoji { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 16px; line-height: 1; animation: fire-anim 1.2s ease-in-out infinite; pointer-events: none; }
 
 /* ─── SET FLASH ANIMATION ────────────────────────────────────────────────────── */
 @keyframes flash-green { 0% { background: transparent; } 25% { background: rgba(76,175,80,0.25); } 60% { background: rgba(76,175,80,0.12); } 100% { background: transparent; } }
