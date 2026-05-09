@@ -353,7 +353,7 @@ function isSessionActive() {
 let pendingFlash = null;
 
 async function toggleSerie(exId, setIdx) {
-  unlockAudioContext();
+  await unlockAudioContext();
   if (!isSessionActive()) {
     showToast('Pulsa ▶ Iniciar entreno para empezar');
     return;
@@ -385,7 +385,7 @@ async function toggleSerie(exId, setIdx) {
     const ex = R[currentDay]?.exercises?.find(e => e.id === exId);
     if (ex) {
       const secs = exRestOverrides[exId] !== undefined ? exRestOverrides[exId] : parseRestSeconds(ex.rest);
-      startTimer(secs, ex.name);
+      await startTimer(secs, ex.name);
     }
   } else {
     pendingFlash = null;
@@ -560,8 +560,8 @@ function sessionStarted() {
   return !!sessionStorage.getItem(SESSION_START_KEY);
 }
 
-function startSessionTimer() {
-  unlockAudioContext();
+async function startSessionTimer() {
+  await unlockAudioContext();
   if (!sessionStorage.getItem(SESSION_START_KEY)) {
     sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
   }
@@ -756,7 +756,7 @@ function initTimerWorker() {
   }
 }
 
-function unlockAudioContext() {
+async function unlockAudioContext() {
   try {
     if (_audioCtx && _audioCtx.state === 'running') return;
     if (!_audioCtx) {
@@ -773,7 +773,7 @@ function unlockAudioContext() {
       }
     }
     if (_audioCtx.state === 'suspended') {
-      _audioCtx.resume();
+      await _audioCtx.resume();
     }
     // Silent beep to fully unlock on iOS
     try {
@@ -824,8 +824,8 @@ function formatSeconds(secs) {
   return s === 0 ? `${m} min` : `${m}:${s.toString().padStart(2,'0')} min`;
 }
 
-function startTimer(secsOrStr, exName) {
-  unlockAudioContext();
+async function startTimer(secsOrStr, exName) {
+  await unlockAudioContext();
   const secs = typeof secsOrStr === 'number' ? secsOrStr : parseRestSeconds(secsOrStr);
   timerTotal = secs;
   timerPaused = false;
