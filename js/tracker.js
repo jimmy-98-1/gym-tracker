@@ -75,8 +75,14 @@ async function loadDataCached(user) {
 }
 
 async function saveDataAndCache(user, data) {
-  _cachedData = data;
-  await saveData(user, data);
+  try {
+    await saveData(user, data);
+    _cachedData = data;
+  } catch(e) {
+    _cachedData = null;
+    showToast('Error al guardar. Inténtalo de nuevo.');
+    throw e;
+  }
 }
 
 // ─── RENDER ───────────────────────────────────────────────────────────────────
@@ -410,6 +416,11 @@ async function saveSession() {
     delete data[wk][currentDay]._setsOverrides;
   }
   await saveDataAndCache(user, data);
+  // Integrity check: verify _saved actually landed in localStorage
+  const verify = await loadData(user);
+  if (!verify[wk]?.[currentDay]?._saved) {
+    console.error('SAVE FAILED: _saved not persisted', { wk, day: currentDay });
+  }
   _cachedData = null;
   showToast('Sesión guardada 💪');
   await render();

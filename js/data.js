@@ -125,6 +125,7 @@ async function saveData(user, data) {
     localStorage.setItem(getStorageKey(user), cipher);
   } catch(e) {
     console.error('saveData: encrypt failed', e);
+    throw e;
   }
 }
 
