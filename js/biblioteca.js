@@ -831,3 +831,9 @@ function logout() {
 
 // SECURITY: async IIFE — ensures render() awaits decryption before any DOM writes
 render().catch(err => console.error('Biblioteca init error:', err));
+
+// Re-render when page is restored from bfcache so the calendar reflects any
+// workout saved while the user was on another page (e.g. tracker.html).
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) render().catch(err => console.error('Biblioteca pageshow error:', err));
+});
