@@ -9,26 +9,38 @@ let _selectedProgressionExId = null;
 let _activeStatsTab = 'volumen'; // 'volumen' | 'progresion' | 'records'
 
 async function render() {
-  document.getElementById('week-badge').textContent = formatTodayDate();
-  const now = new Date();
-  if (calYear === undefined) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
+  try {
+    document.getElementById('week-badge').textContent = formatTodayDate();
+    const now = new Date();
+    if (calYear === undefined) { calYear = now.getFullYear(); calMonth = now.getMonth(); }
 
-  // SECURITY: loadData and getEffectiveRoutine both decrypt from localStorage via session key
-  const data = await loadData(user);
-  _libRoutine = await getEffectiveRoutine(user);
-  const weeks = Object.keys(data).sort().reverse();
-  const schedule = await loadTrainingSchedule(user);
-  const stats = calcStats(data, weeks, schedule);
+    // SECURITY: loadData and getEffectiveRoutine both decrypt from localStorage via session key
+    const data = await loadData(user);
 
-  document.getElementById('bib-sub').textContent =
-    stats.totalDays > 0 ? `${stats.totalDays} días entrenados en total` : 'Aún sin sesiones registradas';
+    // Detect silent decrypt failure: localStorage has data but we got nothing back
+    const storedRaw = localStorage.getItem(`gymtracker_v2_${user}`);
+    if (storedRaw && Object.keys(data).length === 0) {
+      showToast('Error al descifrar los datos. Cierra sesión y vuelve a entrar.');
+    }
 
-  _libData = data;
-  renderCalendar(data);
-  renderSideStats(stats, data, schedule);
-  // SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
-  // await renderSchedulePanel();
-  renderStatsSection(data);
+    _libRoutine = await getEffectiveRoutine(user);
+    const weeks = Object.keys(data).sort().reverse();
+    const schedule = await loadTrainingSchedule(user);
+    const stats = calcStats(data, weeks, schedule);
+
+    document.getElementById('bib-sub').textContent =
+      stats.totalDays > 0 ? `${stats.totalDays} días entrenados en total` : 'Aún sin sesiones registradas';
+
+    _libData = data;
+    renderCalendar(data);
+    renderSideStats(stats, data, schedule);
+    // SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
+    // await renderSchedulePanel();
+    renderStatsSection(data);
+  } catch(e) {
+    console.error('Biblioteca render error:', e);
+    showToast('Error al cargar. Recarga la página.');
+  }
 }
 
 // ─── STATS ────────────────────────────────────────────────────────────────────
@@ -44,7 +56,7 @@ function calcStats(data, weeks, schedule) {
       const dayData = data[wk]?.[day];
       const isRest = schedule ? (schedule[day] === 'rest') : !!ROUTINE[day]?.rest;
       if (!dayData || isRest) return;
-      if (!hasDoneData(dayData)) return;
+      if (!dayData._saved && !hasDoneData(dayData)) return;
       totalDays++;
       weekSessions++;
       Object.entries(dayData).forEach(([k, v]) => {
@@ -355,8 +367,8 @@ async function openDayDetail(y, m, d) {
   const date = new Date(y, m, d);
   const wk = getWeekKeyFromDate(date);
   const dayKey = getDayKeyFromDate(date);
-  // SECURITY: decrypt workout data and routine via session key
-  const data = _libData || await loadData(user);
+  // SECURITY: decrypt workout data and routine via session key — always fresh, never stale cache
+  const data = await loadData(user);
   const dayData = data[wk]?.[dayKey];
 
   if (!dayData || (!hasDoneData(dayData) && !dayData._saved)) return;

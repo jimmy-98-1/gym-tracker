@@ -131,9 +131,12 @@ async function saveData(user, data) {
 
 function getWeekKey() {
   const now = new Date();
-  const start = new Date(now.getFullYear(), 0, 1);
-  const week = Math.ceil(((now - start) / 86400000 + start.getDay() + 1) / 7);
-  return `${now.getFullYear()}-W${String(week).padStart(2,'0')}`;
+  // Normalize to midnight local time so the formula matches getWeekKeyFromDate exactly.
+  // Without this, DST shifts cause a ±1h difference that can flip the week near boundaries.
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const start = new Date(today.getFullYear(), 0, 1);
+  const week = Math.ceil(((today - start) / 86400000 + start.getDay() + 1) / 7);
+  return `${today.getFullYear()}-W${String(week).padStart(2,'0')}`;
 }
 
 function getTodayKey() {
