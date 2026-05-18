@@ -404,7 +404,7 @@ async function toggleSerie(exId, setIdx) {
 async function saveSession() {
   _editing = false;
   const data = await loadDataCached(user);
-  const wk = getWeekKey();
+  const wk = sessionStorage.getItem(WORKOUT_START_WK_KEY) || getWeekKey();
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   data[wk][currentDay]._saved = true;
@@ -415,6 +415,15 @@ async function saveSession() {
   } else {
     delete data[wk][currentDay]._setsOverrides;
   }
+  // Deduplication: if midnight was crossed and an empty/stale slot exists for the same
+  // day under a different week key, remove it to prevent duplicate history entries.
+  const sessionName = data[wk][currentDay]._sessionName;
+  Object.keys(data).forEach(w => {
+    if (w !== wk && data[w][currentDay]?._saved && data[w][currentDay]?._sessionName === sessionName) {
+      delete data[w][currentDay];
+      if (Object.keys(data[w]).length === 0) delete data[w];
+    }
+  });
   await saveDataAndCache(user, data);
   // Integrity check: verify _saved actually landed in localStorage
   const verify = await loadData(user);
@@ -565,6 +574,7 @@ async function toggleCardio(exId) {
 // ─── SESSION STOPWATCH (Feature 1) ────────────────────────────────────────────
 
 const SESSION_START_KEY = 'gymSessionStart';
+const WORKOUT_START_WK_KEY = 'gymWorkoutStartWk';
 let _sessionTickInterval = null;
 
 function sessionStarted() {
@@ -575,12 +585,14 @@ async function startSessionTimer() {
   await unlockAudioContext();
   if (!sessionStorage.getItem(SESSION_START_KEY)) {
     sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
+    sessionStorage.setItem(WORKOUT_START_WK_KEY, getWeekKey());
   }
   _tickSessionTimer();
 }
 
 function stopSessionTimer() {
   sessionStorage.removeItem(SESSION_START_KEY);
+  sessionStorage.removeItem(WORKOUT_START_WK_KEY);
   clearInterval(_sessionTickInterval);
   _sessionTickInterval = null;
 }
@@ -754,7 +766,8 @@ function initTimerWorker() {
         timerCurrentSecs = seconds;
         updateTimerDisplay(seconds);
         saveTimerState();
-        if ([3, 2, 1].includes(seconds) && !_beepedAt.has(seconds)) {
+      } else if (type === 'warning') {
+        if (!_beepedAt.has(seconds)) {
           _beepedAt.add(seconds);
           playBeep();
         }

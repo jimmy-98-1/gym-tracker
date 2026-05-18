@@ -1,6 +1,7 @@
 let intervalId = null;
 let endTime = 0;
 let remaining = 0;
+let _warnedSecs = new Set();
 
 self.onmessage = function(e) {
   const { type, data } = e.data;
@@ -9,6 +10,7 @@ self.onmessage = function(e) {
       clearInterval(intervalId);
       remaining = data.seconds * 1000;
       endTime = Date.now() + remaining;
+      _warnedSecs.clear();
       tick();
       intervalId = setInterval(tick, 250);
       break;
@@ -38,6 +40,10 @@ function tick() {
   const rem = Math.max(0, endTime - Date.now());
   const secs = Math.ceil(rem / 1000);
   self.postMessage({ type: 'tick', seconds: secs });
+  if (secs > 0 && secs <= 3 && !_warnedSecs.has(secs)) {
+    _warnedSecs.add(secs);
+    self.postMessage({ type: 'warning', seconds: secs });
+  }
   if (rem <= 0) {
     clearInterval(intervalId);
     intervalId = null;
