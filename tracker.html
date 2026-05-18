@@ -111,6 +111,16 @@
   </div>
 </div>
 
+<!-- Delete exercise confirmation -->
+<div class="confirm-overlay" id="delete-ex-overlay" onclick="closeDeleteExOverlay()">
+  <div class="confirm-card" onclick="event.stopPropagation()">
+    <div class="confirm-title">🗑 Eliminar ejercicio</div>
+    <p class="confirm-msg" id="delete-ex-msg" style="color:var(--text2);font-size:14px;margin:0 0 20px"></p>
+    <button class="confirm-btn-danger" id="delete-ex-confirm-btn">Sí, eliminar</button>
+    <button class="confirm-btn-cancel" onclick="closeDeleteExOverlay()">Cancelar</button>
+  </div>
+</div>
+
 <!-- Workout summary overlay (Feature 1) -->
 <div class="ws-overlay" id="workout-summary-overlay">
   <div class="ws-sheet">

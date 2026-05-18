@@ -831,6 +831,26 @@ async function playBeep() {
   } catch(e) {}
 }
 
+async function playLongBeep() {
+  try {
+    if (!_audioCtx) return;
+    if (_audioCtx.state === 'suspended') {
+      await _audioCtx.resume();
+    }
+    const osc = _audioCtx.createOscillator();
+    const gain = _audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(_audioCtx.destination);
+    osc.frequency.value = 660;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.7, _audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.7, _audioCtx.currentTime + 1.8);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 2.2);
+    osc.start(_audioCtx.currentTime);
+    osc.stop(_audioCtx.currentTime + 2.2);
+  } catch(e) {}
+}
+
 function parseRestSeconds(restStr) {
   const segMatch = restStr.match(/(\d+)\s*seg/);
   if (segMatch) return parseInt(segMatch[1]);
@@ -913,7 +933,7 @@ function updateTimerDisplay(secs) {
 }
 
 function timerFinished() {
-  playBeep();
+  playLongBeep();
   const fab = document.getElementById('timer-fab');
   fab.classList.add('done');
   document.getElementById('timer-fab-time').textContent = '¡Venga! 💪';
@@ -1274,10 +1294,22 @@ let _swapTargetExId = null;
 
 function removeExFromSession(exId) {
   if (!R[currentDay]) return;
-  R[currentDay] = { ...R[currentDay], exercises: R[currentDay].exercises.filter(e => e.id !== exId) };
-  delete _setsOverrides[exId];
-  saveOverridesToSession();
-  render();
+  const ex = R[currentDay].exercises.find(e => e.id === exId);
+  if (!ex) return;
+  document.getElementById('delete-ex-msg').textContent = `¿Seguro? Se eliminará "${ex.name}" y perderás las series de hoy.`;
+  const overlay = document.getElementById('delete-ex-overlay');
+  overlay.classList.add('open');
+  document.getElementById('delete-ex-confirm-btn').onclick = function() {
+    overlay.classList.remove('open');
+    R[currentDay] = { ...R[currentDay], exercises: R[currentDay].exercises.filter(e => e.id !== exId) };
+    delete _setsOverrides[exId];
+    saveOverridesToSession();
+    render();
+  };
+}
+
+function closeDeleteExOverlay() {
+  document.getElementById('delete-ex-overlay').classList.remove('open');
 }
 
 function swapExInSession(exId) {
