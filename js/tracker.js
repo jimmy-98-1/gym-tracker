@@ -403,8 +403,10 @@ async function toggleSerie(exId, setIdx) {
 
 async function saveSession() {
   _editing = false;
+  stopSessionTimer(); // Always stop the clock when saving
   const data = await loadDataCached(user);
   const wk = sessionStorage.getItem(WORKOUT_START_WK_KEY) || getWeekKey();
+  sessionStorage.removeItem(WORKOUT_START_WK_KEY); // Clean up after reading
   if (!data[wk]) data[wk] = {};
   if (!data[wk][currentDay]) data[wk][currentDay] = {};
   data[wk][currentDay]._saved = true;
@@ -592,9 +594,9 @@ async function startSessionTimer() {
 
 function stopSessionTimer() {
   sessionStorage.removeItem(SESSION_START_KEY);
-  sessionStorage.removeItem(WORKOUT_START_WK_KEY);
   clearInterval(_sessionTickInterval);
   _sessionTickInterval = null;
+  // WORKOUT_START_WK_KEY is read and removed by saveSession() after use
 }
 
 function _tickSessionTimer() {
