@@ -29,6 +29,7 @@ let _editing = false;
 let exRestOverrides = {};
 
 const SETS_OVERRIDES_KEY = 'gym_sets_overrides';
+const SESSION_EX_KEY = 'gym_session_exercises';
 
 function saveOverridesToSession() {
   sessionStorage.setItem(SETS_OVERRIDES_KEY, JSON.stringify({ user, day: currentDay, overrides: _setsOverrides }));
@@ -47,6 +48,28 @@ function loadOverridesFromSession() {
   } catch (e) {
     return {};
   }
+}
+
+function saveSessionExercises() {
+  sessionStorage.setItem(SESSION_EX_KEY, JSON.stringify({
+    user, day: currentDay, exercises: R[currentDay]?.exercises || []
+  }));
+}
+
+function loadSessionExercises() {
+  try {
+    const raw = sessionStorage.getItem(SESSION_EX_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed.user !== user || parsed.day !== currentDay) return null;
+    return parsed.exercises || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearSessionExercises() {
+  sessionStorage.removeItem(SESSION_EX_KEY);
 }
 
 // Per-exercise sets overrides: { exId: number } — temporal, se borra al cambiar de día
@@ -112,6 +135,14 @@ async function render() {
           _assignments[currentDay] = null;
           await saveRoutineAssignments(user, _assignments);
         }
+      }
+    }
+
+    // Restore in-session exercise modifications (swaps/deletions) so they survive re-renders
+    if (sessionStarted()) {
+      const sessionExercises = loadSessionExercises();
+      if (sessionExercises !== null) {
+        R[currentDay] = { ...R[currentDay], exercises: sessionExercises };
       }
     }
 
@@ -592,18 +623,20 @@ async function startSessionTimer() {
   }
   _tickSessionTimer();
 
-  // Coach IA: analizar historial solo al iniciar (no en reinicios de página)
+  // Coach IA: mostrar popup motivacional inmediato y analizar historial al iniciar
   if (isFirstStart) {
+    startCoach(); // muestra mensaje motivacional de inmediato
     const exercises = R[currentDay]?.exercises || [];
     if (exercises.length > 0) {
       const data = await loadDataCached(user);
-      runCoachAnalysis(exercises, data); // Sin await — corre en background
+      runCoachAnalysis(exercises, data); // Sin await — actualiza popup si hay sugerencias
     }
   }
 }
 
 function stopSessionTimer() {
   sessionStorage.removeItem(SESSION_START_KEY);
+  clearSessionExercises();
   clearInterval(_sessionTickInterval);
   _sessionTickInterval = null;
   // WORKOUT_START_WK_KEY is read and removed by saveSession() after use
@@ -1323,6 +1356,7 @@ function removeExFromSession(exId) {
     R[currentDay] = { ...R[currentDay], exercises: R[currentDay].exercises.filter(e => e.id !== exId) };
     delete _setsOverrides[exId];
     saveOverridesToSession();
+    saveSessionExercises();
     render();
   };
 }
@@ -1408,6 +1442,7 @@ function _selectExSwap(exId) {
     if (idx !== -1) R[currentDay].exercises[idx] = selectedEx;
     delete _setsOverrides[_swapTargetExId];
     saveOverridesToSession();
+    saveSessionExercises();
   }
   _closeExSwapPicker();
   render();

@@ -1,10 +1,57 @@
 // ─── COACH IA — OpenAI Integration ────────────────────────────────────────────
-// Analiza el historial del usuario y sugiere progresos conservadores y seguros.
 
-// OPENAI_API_KEY se define en js/config.js (excluido de git)
 const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
-let _coachSuggestions = null;
+const COACH_MOTIVATIONS = [
+  '¡Cada rep te hace más fuerte!',
+  '¡La constancia es tu superpoder!',
+  '¡Mejor que ayer, peor que mañana!',
+  '¡El esfuerzo de hoy es el músculo de mañana!',
+  '¡Sin excusas, sin límites!',
+  '¡Tú puedes más de lo que crees!',
+  '¡Hoy es un buen día para mejorar!',
+  '¡Cada sesión cuenta, no pares!',
+  '¡El dolor de hoy, el orgullo de mañana!',
+  '¡Enfocado. Constante. Imparable!',
+];
+
+// ─── UI ───────────────────────────────────────────────────────────────────────
+
+let _blinkTimer = null;
+
+function showCoachPopup(msg) {
+  const popup = document.getElementById('coach-popup');
+  const msgEl = document.getElementById('coach-popup-msg');
+  if (!popup || !msgEl) return;
+  msgEl.textContent = msg;
+  popup.classList.add('visible');
+}
+
+function hideCoachPopup() {
+  const popup = document.getElementById('coach-popup');
+  if (!popup) return;
+  popup.classList.remove('visible', 'expanded', 'has-suggestion');
+  if (_blinkTimer) { clearTimeout(_blinkTimer); _blinkTimer = null; }
+}
+
+function toggleCoachPopup() {
+  const popup = document.getElementById('coach-popup');
+  if (popup) popup.classList.toggle('expanded');
+}
+
+function _randomMotivation() {
+  return COACH_MOTIVATIONS[Math.floor(Math.random() * COACH_MOTIVATIONS.length)];
+}
+
+// Llamar al iniciar sesión — muestra el botón con motivación inmediata
+function startCoach() {
+  showCoachPopup(_randomMotivation());
+}
+
+// Llamar al terminar sesión
+function resetCoach() {
+  hideCoachPopup();
+}
 
 // ─── RECOPILACIÓN DE HISTORIAL ────────────────────────────────────────────────
 
@@ -36,7 +83,7 @@ function _getExerciseHistory(exId, data, currentWk, maxSessions = 4) {
     if (sessions.length >= maxSessions) break;
   }
 
-  return sessions; // orden: más reciente primero
+  return sessions;
 }
 
 // ─── CONSTRUCCIÓN DEL PROMPT ──────────────────────────────────────────────────
@@ -137,46 +184,23 @@ async function runCoachAnalysis(exercises, data) {
     );
 
     if (suggestions.length > 0) {
-      _coachSuggestions = suggestions;
-      _showCoachBadge();
+      const s = suggestions[0];
+      const icon = s.type === 'weight' ? '⬆️' : '🔁';
+      showCoachPopup(`${s.exerciseName}: ${icon} ${s.message}`);
+
+      // Parpadeo durante 5 min para llamar la atención
+      const popup = document.getElementById('coach-popup');
+      if (popup) {
+        popup.classList.add('has-suggestion');
+        if (_blinkTimer) clearTimeout(_blinkTimer);
+        _blinkTimer = setTimeout(() => {
+          popup.classList.remove('has-suggestion');
+          _blinkTimer = null;
+        }, 5 * 60 * 1000);
+      }
     }
   } catch (e) {
     // Fallo silencioso — el entrenador IA es opcional, no debe romper el entreno
     console.warn('Coach IA:', e.message);
   }
-}
-
-// ─── UI ───────────────────────────────────────────────────────────────────────
-
-function _showCoachBadge() {
-  const badge = document.getElementById('coach-badge');
-  if (badge) badge.classList.add('visible');
-}
-
-function openCoachModal() {
-  if (!_coachSuggestions || _coachSuggestions.length === 0) return;
-
-  const list = document.getElementById('coach-suggestions-list');
-  list.innerHTML = _coachSuggestions.map(s => {
-    const icon = s.type === 'weight' ? '⬆️' : '🔁';
-    return `<div class="coach-item">
-      <div class="coach-item-name">${escapeHTML(s.exerciseName)}</div>
-      <div class="coach-item-msg">${icon} ${escapeHTML(s.message)}</div>
-    </div>`;
-  }).join('');
-
-  document.getElementById('coach-overlay').classList.add('open');
-  document.body.style.overflow = 'hidden';
-}
-
-function closeCoachModal() {
-  document.getElementById('coach-overlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-
-function resetCoach() {
-  _coachSuggestions = null;
-  const badge = document.getElementById('coach-badge');
-  if (badge) badge.classList.remove('visible');
-  closeCoachModal();
 }

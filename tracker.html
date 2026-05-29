@@ -176,21 +176,13 @@
   </a>
 </nav>
 
-<!-- Coach AI overlay -->
-<div class="coach-overlay" id="coach-overlay" onclick="closeCoachModal()">
-  <div class="coach-sheet" onclick="event.stopPropagation()">
-    <div class="coach-header">
-      <span class="coach-title">⚡ Entrenador IA</span>
-      <button class="picker-close" onclick="closeCoachModal()">✕</button>
-    </div>
-    <p class="coach-subtitle">Basándome en tus últimas sesiones, puedes mejorar en:</p>
-    <div class="coach-list" id="coach-suggestions-list"></div>
-    <button class="coach-ok-btn" onclick="closeCoachModal()">Entendido 💪</button>
+<!-- Coach popup (floating button, bottom-left, visible during active session) -->
+<div class="coach-popup" id="coach-popup" onclick="toggleCoachPopup()">
+  <span class="coach-popup-icon" id="coach-popup-icon">⚡</span>
+  <div class="coach-popup-bubble" id="coach-popup-bubble">
+    <span class="coach-popup-msg" id="coach-popup-msg"></span>
   </div>
 </div>
-
-<!-- Coach badge (floating pill, appears when IA has suggestions) -->
-<button class="coach-badge" id="coach-badge" onclick="openCoachModal()">⚡ Ver consejos</button>
 
 <!-- SECURITY: auth.js before data.js — supplies session/crypto functions -->
 <script src="js/theme.js"></script>
