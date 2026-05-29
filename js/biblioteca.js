@@ -107,25 +107,30 @@ function calcDayVolume(date, data) {
 
 function calcMonthProgress(data, schedule = null) {
   const now = new Date();
-  const year = now.getFullYear(), month = now.getMonth(), today = now.getDate();
+  const year = now.getFullYear(), month = now.getMonth();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   let trained = 0;
-  let trainingDaysInMonth = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(year, month, d);
-    const dayKey = getDayKeyFromDate(date);
-    const isRest = schedule && schedule[dayKey]
-      ? schedule[dayKey] === 'rest'
-      : !!ROUTINE[dayKey]?.rest;
-    if (isRest) continue;
-    trainingDaysInMonth++;
-    if (d <= today) {
-      const wk = getWeekKeyFromDate(date);
-      const dayData = data[wk]?.[dayKey];
-      if (dayData?._saved || hasDoneData(dayData)) trained++;
-    }
-  }
-  return { trained, total: trainingDaysInMonth };
+
+  Object.keys(data).forEach(wk => {
+    DAYS.forEach((day, dayIdx) => {
+      const dayData = data[wk]?.[day];
+      if (!dayData) return;
+      if (!dayData._saved && !hasDoneData(dayData)) return;
+      const isRest = schedule ? (schedule[day] === 'rest') : !!ROUTINE[day]?.rest;
+      if (isRest) return;
+      // Find which actual calendar dates this (wk, day) corresponds to in the current month
+      // by scanning days of the month that match this week key and day key
+      for (let d = 1; d <= daysInMonth; d++) {
+        const date = new Date(year, month, d);
+        if (getDayKeyFromDate(date) === day && getWeekKeyFromDate(date) === wk) {
+          trained++;
+          break;
+        }
+      }
+    });
+  });
+
+  return { trained, total: daysInMonth };
 }
 
 // ─── CAROUSEL GAMIFICACIÓN ────────────────────────────────────────────────────
@@ -328,12 +333,13 @@ function renderCalendar(data) {
 
 const DAY_LABELS_LONG = { lun:'Lunes', mar:'Martes', mie:'Miércoles', jue:'Jueves', vie:'Viernes', sab:'Sábado', dom:'Domingo' };
 
-function getAllPRs(data) {
+function getAllPRs(data, excludeWk = null, excludeDayKey = null) {
   const prs = {};
-  Object.values(data).forEach(weekData => {
+  Object.entries(data).forEach(([wk, weekData]) => {
     if (typeof weekData !== 'object') return;
-    Object.values(weekData).forEach(dayData => {
+    Object.entries(weekData).forEach(([dayKey, dayData]) => {
       if (typeof dayData !== 'object') return;
+      if (wk === excludeWk && dayKey === excludeDayKey) return;
       Object.entries(dayData).forEach(([exId, exData]) => {
         if (exId.startsWith('_') || typeof exData !== 'object') return;
         Object.entries(exData).forEach(([sk, sv]) => {
@@ -376,7 +382,7 @@ async function openDayDetail(y, m, d) {
   const R = _libRoutine || await getEffectiveRoutine(user);
   const info = R[dayKey];
   const exercises = info?.exercises || [];
-  const allPRs = getAllPRs(data);
+  const allPRs = getAllPRs(data, wk, dayKey);
 
   const sessionName = dayData._sessionName || info?.name || '';
   document.getElementById('dd-title').textContent = `${DAY_LABELS_LONG[dayKey]} · ${sessionName}`;
@@ -410,7 +416,7 @@ async function openDayDetail(y, m, d) {
         const kg = parseFloat(exData[`s${i}_kg`]) || 0;
         const rep = parseInt(exData[`s${i}_rep`]) || 0;
         const orm = (kg > 0 && rep > 0) ? Math.round(kg * (1 + rep / 30)) : null;
-        const isPR = orm !== null && allPRs[exId] && orm >= allPRs[exId];
+        const isPR = orm !== null && orm > (allPRs[exId] ?? 0);
         sets.push({ num: i + 1, kg, rep, orm, isPR });
         totalVol += kg * rep;
         totalSeriesDone++;

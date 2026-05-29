@@ -256,12 +256,12 @@ function renderExCard(ex, exData, lastSession, done, isSaved, isEditing) {
   const effectiveSets = _setsOverrides[ex.id] ?? ex.sets;
   let rows = '';
   for (let i = 0; i < effectiveSets; i++) {
-    const kg = exData[`s${i}_kg`] || '';
-    const rep = exData[`s${i}_rep`] || '';
-    const rpe = exData[`s${i}_rpe`] || '';
-    const isDone = exData[`s${i}_done`] || false;
     const lastKg = lastSession?.[`s${i}_kg`] || '';
     const lastRep = lastSession?.[`s${i}_rep`] || '';
+    const kg = exData[`s${i}_kg`] || lastKg;
+    const rep = exData[`s${i}_rep`] || lastRep;
+    const rpe = exData[`s${i}_rpe`] || '';
+    const isDone = exData[`s${i}_done`] || false;
     const lastKgNum = parseFloat(String(lastKg).replace(',', '.')) || 0;
     const refText = lastRep ? (lastKgNum > 0 ? `${lastKg}×${lastRep}` : `PC×${lastRep}`) : '—';
     const inputRo = (locked || (isDone && !isEditing) || (!sessionActive && !isSaved)) ? 'readonly' : '';
@@ -585,11 +585,21 @@ function sessionStarted() {
 
 async function startSessionTimer() {
   await unlockAudioContext();
-  if (!sessionStorage.getItem(SESSION_START_KEY)) {
+  const isFirstStart = !sessionStorage.getItem(SESSION_START_KEY);
+  if (isFirstStart) {
     sessionStorage.setItem(SESSION_START_KEY, String(Date.now()));
     sessionStorage.setItem(WORKOUT_START_WK_KEY, getWeekKey());
   }
   _tickSessionTimer();
+
+  // Coach IA: analizar historial solo al iniciar (no en reinicios de página)
+  if (isFirstStart) {
+    const exercises = R[currentDay]?.exercises || [];
+    if (exercises.length > 0) {
+      const data = await loadDataCached(user);
+      runCoachAnalysis(exercises, data); // Sin await — corre en background
+    }
+  }
 }
 
 function stopSessionTimer() {
@@ -686,6 +696,7 @@ function closeWorkoutSummary() {
 async function finishWorkout() {
   closeWorkoutSummary();
   stopSessionTimer();
+  resetCoach();
   await saveSession();
 }
 
@@ -784,6 +795,8 @@ function initTimerWorker() {
 
 async function unlockAudioContext() {
   try {
+    // Recreate if closed (can happen after long inactivity on some browsers)
+    if (_audioCtx && _audioCtx.state === 'closed') _audioCtx = null;
     if (_audioCtx && _audioCtx.state === 'running') return;
     if (!_audioCtx) {
       _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
@@ -796,6 +809,12 @@ async function unlockAudioContext() {
             }
           });
         }
+        // Resume when user returns to the app (page visibility change counts as activation on most platforms)
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible' && _audioCtx && _audioCtx.state === 'suspended') {
+            _audioCtx.resume().catch(() => {});
+          }
+        });
       }
     }
     if (_audioCtx.state === 'suspended') {
@@ -816,10 +835,9 @@ async function unlockAudioContext() {
 
 async function playBeep() {
   try {
-    if (!_audioCtx) return;
-    if (_audioCtx.state === 'suspended') {
-      await _audioCtx.resume();
-    }
+    if (!_audioCtx || _audioCtx.state === 'closed') return;
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume().catch(() => {});
+    if (_audioCtx.state !== 'running') return;
     const osc = _audioCtx.createOscillator();
     const gain = _audioCtx.createGain();
     osc.connect(gain);
@@ -835,21 +853,20 @@ async function playBeep() {
 
 async function playLongBeep() {
   try {
-    if (!_audioCtx) return;
-    if (_audioCtx.state === 'suspended') {
-      await _audioCtx.resume();
-    }
+    if (!_audioCtx || _audioCtx.state === 'closed') return;
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume().catch(() => {});
+    if (_audioCtx.state !== 'running') return;
     const osc = _audioCtx.createOscillator();
     const gain = _audioCtx.createGain();
     osc.connect(gain);
     gain.connect(_audioCtx.destination);
     osc.frequency.value = 660;
     osc.type = 'sine';
-    gain.gain.setValueAtTime(0.7, _audioCtx.currentTime);
-    gain.gain.setValueAtTime(0.7, _audioCtx.currentTime + 1.8);
-    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 2.2);
+    gain.gain.setValueAtTime(0.4, _audioCtx.currentTime);
+    gain.gain.setValueAtTime(0.4, _audioCtx.currentTime + 0.8);
+    gain.gain.exponentialRampToValueAtTime(0.001, _audioCtx.currentTime + 1.2);
     osc.start(_audioCtx.currentTime);
-    osc.stop(_audioCtx.currentTime + 2.2);
+    osc.stop(_audioCtx.currentTime + 1.2);
   } catch(e) {}
 }
 

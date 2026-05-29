@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
 <meta name="theme-color" content="#f5f5f7"/>
 <!-- SECURITY: CSP restricts script/style sources to same origin, blocks inline eval and external resource injection -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'"/>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://api.openai.com; object-src 'none'; base-uri 'self'"/>
 <title>Gym Tracker</title>
 <link rel="stylesheet" href="css/styles.css"/>
 </head>
@@ -176,12 +176,30 @@
   </a>
 </nav>
 
+<!-- Coach AI overlay -->
+<div class="coach-overlay" id="coach-overlay" onclick="closeCoachModal()">
+  <div class="coach-sheet" onclick="event.stopPropagation()">
+    <div class="coach-header">
+      <span class="coach-title">⚡ Entrenador IA</span>
+      <button class="picker-close" onclick="closeCoachModal()">✕</button>
+    </div>
+    <p class="coach-subtitle">Basándome en tus últimas sesiones, puedes mejorar en:</p>
+    <div class="coach-list" id="coach-suggestions-list"></div>
+    <button class="coach-ok-btn" onclick="closeCoachModal()">Entendido 💪</button>
+  </div>
+</div>
+
+<!-- Coach badge (floating pill, appears when IA has suggestions) -->
+<button class="coach-badge" id="coach-badge" onclick="openCoachModal()">⚡ Ver consejos</button>
+
 <!-- SECURITY: auth.js before data.js — supplies session/crypto functions -->
 <script src="js/theme.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/data.js"></script>
 <script src="js/exercises.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/config.js"></script>
+<script src="js/gemini.js"></script>
 <script src="js/tracker.js"></script>
 </body>
 </html>

@@ -29,4 +29,6 @@ Thumbs.db
 
 # Temporales
 *.log
-.cache/
+.cache/js/config.js
+
+js/config.js

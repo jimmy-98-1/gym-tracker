@@ -808,3 +808,97 @@ body.dark .prog-select { background: #3A3A3C; border-color: rgba(255,255,255,0.1
 .stats-tab-content { animation: statsFadeIn 0.2s ease; }
 @keyframes statsFadeIn { from { opacity: 0; } to { opacity: 1; } }
 body.dark .stats-tab:not(.active) { background: #3A3A3C; color: #D1D1D6; }
+
+/* ─── COACH IA ─────────────────────────────────────────────────────────────── */
+.coach-badge {
+  position: fixed;
+  bottom: calc(72px + env(safe-area-inset-bottom) + 12px);
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 150;
+  box-shadow: 0 4px 16px rgba(255,107,0,0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  white-space: nowrap;
+}
+.coach-badge.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) translateY(0);
+}
+.coach-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 400;
+  display: none;
+  align-items: flex-end;
+  justify-content: center;
+}
+.coach-overlay.open { display: flex; }
+.coach-sheet {
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  padding: 24px 20px calc(24px + env(safe-area-inset-bottom));
+  width: 100%;
+  max-width: 480px;
+}
+.coach-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.coach-title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--orange);
+}
+.coach-subtitle {
+  font-size: 13px;
+  color: var(--text2);
+  margin: 0 0 16px;
+  line-height: 1.4;
+}
+.coach-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+.coach-item {
+  background: var(--surface2);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+.coach-item-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.coach-item-msg {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.4;
+}
+.coach-ok-btn {
+  width: 100%;
+  background: var(--orange);
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
