@@ -257,7 +257,7 @@ function renderSession(data, wk, weekNum) {
       ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
   } else {
     const hasAssignment = _loadedRoutineId !== null || (_assignments[currentDay] ?? null) !== null;
-    saveAreaHtml = `<button class="start-entreno-btn" onclick="startSessionTimer();render()">▶ Iniciar entreno</button>
+    saveAreaHtml = `<button class="start-entreno-btn" onclick="_createAudioContextSync();startSessionTimer();render()">▶ Iniciar entreno</button>
     <button class="load-routine-btn" onclick="openRoutineLoader()">📋 Cargar rutina</button>
     ${hasAssignment ? `<button class="clear-assignment-btn" onclick="clearDayAssignment()">✕ Quitar rutina</button>` : ''}
     ${allDone ? `<button class="share-session-btn" onclick="openShareOverlay()">📤 Compartir sesión</button>` : ''}`;
@@ -734,6 +734,7 @@ async function finishWorkout() {
 }
 
 function continueWorkout() {
+  _createAudioContextSync();
   closeWorkoutSummary();
   startSessionTimer();
 }
@@ -826,23 +827,21 @@ function initTimerWorker() {
   }
 }
 
-async function unlockAudioContext() {
+// Called synchronously from the "Iniciar entreno" click handler — must not contain any await.
+// Web Audio API requires AudioContext creation/resume to happen inside the user-gesture call stack;
+// once you cross an await boundary the browser considers the gesture expired and suspends the context.
+function _createAudioContextSync() {
   try {
-    // Recreate if closed (can happen after long inactivity on some browsers)
     if (_audioCtx && _audioCtx.state === 'closed') _audioCtx = null;
-    if (_audioCtx && _audioCtx.state === 'running') return;
     if (!_audioCtx) {
       _audioCtx = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'interactive' });
       if (!_audioCtx._deviceListenerAdded) {
         _audioCtx._deviceListenerAdded = true;
         if (navigator.mediaDevices?.addEventListener) {
           navigator.mediaDevices.addEventListener('devicechange', () => {
-            if (_audioCtx && _audioCtx.state === 'suspended') {
-              _audioCtx.resume().catch(() => {});
-            }
+            if (_audioCtx && _audioCtx.state === 'suspended') _audioCtx.resume().catch(() => {});
           });
         }
-        // Resume when user returns to the app (page visibility change counts as activation on most platforms)
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible' && _audioCtx && _audioCtx.state === 'suspended') {
             _audioCtx.resume().catch(() => {});
@@ -850,19 +849,30 @@ async function unlockAudioContext() {
         });
       }
     }
-    if (_audioCtx.state === 'suspended') {
-      await _audioCtx.resume();
+    // resume() returns a Promise — kick it off but don't await (we're in a sync function)
+    if (_audioCtx.state === 'suspended') _audioCtx.resume().catch(() => {});
+  } catch(e) {}
+}
+
+async function unlockAudioContext() {
+  try {
+    if (_audioCtx && _audioCtx.state === 'closed') _audioCtx = null;
+    // If not yet created (no user gesture happened), create now as best-effort
+    if (!_audioCtx) _createAudioContextSync();
+    if (!_audioCtx) return;
+    if (_audioCtx.state === 'suspended') await _audioCtx.resume().catch(() => {});
+    // Silent beep to confirm the context is truly unlocked
+    if (_audioCtx.state === 'running') {
+      try {
+        const osc = _audioCtx.createOscillator();
+        const gain = _audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(_audioCtx.destination);
+        gain.gain.setValueAtTime(0.001, _audioCtx.currentTime);
+        osc.start(_audioCtx.currentTime);
+        osc.stop(_audioCtx.currentTime + 0.01);
+      } catch(e) {}
     }
-    // Silent beep to fully unlock on iOS
-    try {
-      const osc = _audioCtx.createOscillator();
-      const gain = _audioCtx.createGain();
-      osc.connect(gain);
-      gain.connect(_audioCtx.destination);
-      gain.gain.setValueAtTime(0.001, _audioCtx.currentTime);
-      osc.start(_audioCtx.currentTime);
-      osc.stop(_audioCtx.currentTime + 0.01);
-    } catch(e) {}
   } catch(e) {}
 }
 

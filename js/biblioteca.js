@@ -34,8 +34,6 @@ async function render() {
     _libData = data;
     renderCalendar(data);
     renderSideStats(stats, data, schedule);
-    // SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
-    // await renderSchedulePanel();
     renderStatsSection(data);
   } catch(e) {
     console.error('Biblioteca render error:', e);
@@ -84,26 +82,6 @@ function hasDoneData(dayData) {
   );
 }
 
-// ─── VOLUMEN POR DÍA ──────────────────────────────────────────────────────────
-
-function calcDayVolume(date, data) {
-  const wk = getWeekKeyFromDate(date);
-  const dayKey = getDayKeyFromDate(date);
-  const dayData = data[wk]?.[dayKey];
-  if (!dayData) return 0;
-  let vol = 0;
-  Object.entries(dayData).forEach(([k, v]) => {
-    if (k.startsWith('_') || typeof v !== 'object') return;
-    Object.entries(v).forEach(([sk, sv]) => {
-      if (!sk.endsWith('_done') || !sv) return;
-      const idx = sk.replace('_done', '');
-      const kg = parseFloat(v[`${idx}_kg`]) || 0;
-      const rep = parseInt(v[`${idx}_rep`]) || 0;
-      vol += kg * rep;
-    });
-  });
-  return vol;
-}
 
 function calcMonthProgress(data, schedule = null) {
   const now = new Date();
@@ -116,8 +94,12 @@ function calcMonthProgress(data, schedule = null) {
       const dayData = data[wk]?.[day];
       if (!dayData) return;
       if (!dayData._saved && !hasDoneData(dayData)) return;
-      const isRest = schedule ? (schedule[day] === 'rest') : !!ROUTINE[day]?.rest;
-      if (isRest) return;
+      // Mirror getDayStatus logic: saved days always count regardless of rest;
+      // partial days only count if not a rest day (use same _libRoutine source as the calendar).
+      if (!dayData._saved) {
+        const isRest = _libRoutine ? !!_libRoutine[day]?.rest : (schedule ? (schedule[day] === 'rest') : !!ROUTINE[day]?.rest);
+        if (isRest) return;
+      }
       // Find which actual calendar dates this (wk, day) corresponds to in the current month
       // by scanning days of the month that match this week key and day key
       for (let d = 1; d <= daysInMonth; d++) {
@@ -133,69 +115,6 @@ function calcMonthProgress(data, schedule = null) {
   return { trained, total: daysInMonth };
 }
 
-// ─── CAROUSEL GAMIFICACIÓN ────────────────────────────────────────────────────
-
-const WEIGHT_REFS = [
-  { emoji: '🧊', singular: 'nevera',          plural: 'neveras',          kg: 80   },
-  { emoji: '🐕', singular: 'Golden Retriever', plural: 'Golden Retrievers', kg: 30   },
-  { emoji: '🐄', singular: 'vaca',             plural: 'vacas',             kg: 600  },
-  { emoji: '🏍️', singular: 'moto',             plural: 'motos',             kg: 200  },
-  { emoji: '🚗', singular: 'coche',            plural: 'coches',            kg: 1300 },
-  { emoji: '🐻', singular: 'oso pardo',        plural: 'osos pardos',       kg: 250  },
-  { emoji: '🦁', singular: 'león',             plural: 'leones',            kg: 190  },
-  { emoji: '🏋️', singular: 'Arnold',           plural: 'Arnolds',           kg: 113  },
-  { emoji: '🐘', singular: 'elefante',         plural: 'elefantes',         kg: 4500 },
-  { emoji: '🦊', singular: 'zorro',            plural: 'zorros',            kg: 6    },
-];
-
-let _carouselTimer = null;
-let _carouselIdx = 0;
-let _carouselItems = [];
-
-function buildCarouselItems(kg) {
-  const items = [];
-  WEIGHT_REFS.forEach(ref => {
-    const n = kg / ref.kg;
-    if (n >= 0.05) {
-      const disp = n >= 100 ? Math.round(n) : n >= 1 ? parseFloat(n.toFixed(1)) : parseFloat(n.toFixed(2));
-      const label = disp === 1 ? ref.singular : ref.plural;
-      items.push(`${ref.emoji} ${disp} ${label}`);
-    }
-  });
-  return items;
-}
-
-function startCarousel(items) {
-  if (_carouselTimer) { clearInterval(_carouselTimer); _carouselTimer = null; }
-  if (!items || items.length <= 1) return;
-  _carouselItems = items;
-  _carouselIdx = 0;
-  _carouselTimer = setInterval(() => {
-    _carouselIdx = (_carouselIdx + 1) % _carouselItems.length;
-    const el = document.getElementById('stat-carousel-text');
-    if (!el) { clearInterval(_carouselTimer); _carouselTimer = null; return; }
-    el.style.opacity = '0';
-    setTimeout(() => { el.textContent = _carouselItems[_carouselIdx]; el.style.opacity = '1'; }, 300);
-  }, 3500);
-}
-
-function funComparison(kg) {
-  if (kg <= 0) return null;
-  const refs = [
-    { name: 'coches', kg: 1400, emoji: '🚗' },
-    { name: 'elefantes', kg: 5000, emoji: '🐘' },
-    { name: 'vacas', kg: 600, emoji: '🐄' },
-    { name: 'neveras', kg: 80, emoji: '🧊' },
-  ];
-  for (const ref of refs) {
-    const n = kg / ref.kg;
-    if (n >= 0.5) {
-      const val = n >= 10 ? Math.round(n) : n.toFixed(1).replace('.0', '');
-      return `${ref.emoji} ${val} ${ref.name}`;
-    }
-  }
-  return `🏋️ ${kg} kg`;
-}
 
 function renderSideStats(s, data, schedule) {
   const mp = calcMonthProgress(data, schedule);
@@ -276,20 +195,6 @@ function renderCalendar(data) {
   if (startOffset < 0) startOffset = 6;
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
 
-  // Pre-calc volumes for heatmap
-  const dayVols = {};
-  let maxVol = 0;
-  for (let d = 1; d <= daysInMonth; d++) {
-    const date = new Date(calYear, calMonth, d);
-    if (date > today) continue;
-    const status = getDayStatus(date, data, _libRoutine);
-    if (status === 'complete' || status === 'partial') {
-      const vol = calcDayVolume(date, data);
-      dayVols[d] = vol;
-      if (vol > maxVol) maxVol = vol;
-    }
-  }
-
   let html = '';
   for (let i = 0; i < startOffset; i++) html += `<div class="cal-cell"></div>`;
 
@@ -302,12 +207,8 @@ function renderCalendar(data) {
 
     let bgStyle = '', numStyle = '', checkStyle = '';
     if (status === 'complete' || status === 'partial') {
-      const vol = dayVols[d] || 0;
-      const intensity = maxVol > 0 && vol > 0 ? vol / maxVol : (status === 'complete' ? 0.4 : 0.15);
-      const opacity = 0.18 + intensity * 0.82;
-      bgStyle = `background:rgba(255,107,0,${opacity.toFixed(2)});`;
-      if (intensity > 0.5) { numStyle = 'color:#fff;'; checkStyle = 'color:rgba(255,255,255,0.9);'; }
-      else { numStyle = 'color:var(--orange);'; checkStyle = 'color:var(--orange);'; }
+      bgStyle = `background:var(--orange);`;
+      numStyle = 'color:#fff;'; checkStyle = 'color:rgba(255,255,255,0.9);';
     }
 
     let inner = `<span class="cal-day-num">${d}</span>`;
@@ -698,51 +599,6 @@ function _buildVolumenHtml(data) {
   return html;
 }
 
-// SCHEDULE PANEL — desactivado temporalmente, pendiente de reubicación en otra pantalla
-/*
-async function renderSchedulePanel() {
-  const container = document.getElementById('schedule-section');
-  if (!container) return;
-
-  const [schedule, assignments, routines] = await Promise.all([
-    loadTrainingSchedule(user),
-    loadRoutineAssignments(user),
-    loadUserRoutines(user),
-  ]);
-
-  const routineMap = {};
-  routines.forEach(r => { routineMap[r.id] = r.name; });
-
-  let html = `<div class="schedule-panel">
-    <div class="bib-section-title" style="margin-bottom:12px">Mi semana</div>
-    <div class="schedule-grid">`;
-
-  DAYS.forEach(d => {
-    const state = schedule[d] || (ROUTINE[d].rest ? 'rest' : 'train');
-    const isTrain = state === 'train';
-    const assignedId = assignments[d] ?? null;
-    const routineName = isTrain && assignedId ? (routineMap[assignedId] || null) : null;
-    html += `<div class="schedule-day${isTrain ? ' train' : ' rest'}" onclick="toggleScheduleDay('${d}')">
-      <div class="schedule-day-icon">${isTrain ? '💪' : '💤'}</div>
-      <div class="schedule-day-label">${ROUTINE[d].label}</div>
-      ${routineName ? `<div class="schedule-day-routine">${escapeHTML(routineName)}</div>` : ''}
-    </div>`;
-  });
-
-  html += `</div>
-    <div class="schedule-hint">Tu racha solo se rompe si no entrenas un día marcado como 💪 Entreno</div>
-  </div>`;
-
-  container.innerHTML = html;
-}
-
-async function toggleScheduleDay(dayKey) {
-  const schedule = await loadTrainingSchedule(user);
-  schedule[dayKey] = schedule[dayKey] === 'rest' ? 'train' : 'rest';
-  await saveTrainingSchedule(user, schedule);
-  await renderSchedulePanel();
-}
-*/
 
 // ─── RÉCORDS PERSONALES ───────────────────────────────────────────────────────
 
