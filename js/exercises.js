@@ -161,6 +161,9 @@ const EXERCISE_CATALOG = {
     { id:'CC',  name:'Curl concentrado',
       sets:3, reps:'12–15', rpe:'8', rest:'60 seg',
       note:'Sentado, apoya el codo en la cara interna del muslo. Sube la mancuerna girando la muñeca hacia afuera al final para supinar y alcanzar la máxima contracción. La posición del brazo fuerza la activación del bíceps en el plano correcto. Baja hasta extensión completa y repite sin balanceo.' },
+    { id:'CINV', name:'Curl invertido (agarre prono)',
+      sets:3, reps:'12–15', rpe:'8.5–9', rest:'60–90 seg',
+      note:'Ejecución: Agarre fuerte, codos pegados al cuerpo y sube controlando la bajada. Si la barra recta en pronación te molesta en una muñeca, usa la cuerda para un agarre intermedio entre neutro y pronado. Busca un bombeo masivo con repeticiones altas y control en el excéntrico.' },
   ],
   'Tríceps': [
     { id:'ET',  name:'Extensión de tríceps en polea',
