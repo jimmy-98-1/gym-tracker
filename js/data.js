@@ -16,7 +16,7 @@ const ROUTINE = {
     label: 'Mar', name: 'Pecho + Tríceps', duration: '~65 min', rest: false,
     exercises: [
       { id:'PI', name:'Press inclinado con mancuernas',       sets:4, reps:'8–12',  rpe:'7–8', rest:'2–3 min', note:'30–45°, codos ligeramente cerrados' },
-      { id:'AP', name:'Aperturas en polea baja',              sets:3, reps:'12–15', rpe:'8',   rest:'90 seg',  note:'Manos abajo, arco amplio' },
+      { id:'AP', name:'Apertura en polea media',               sets:3, reps:'12–15', rpe:'8',   rest:'90 seg',  note:'Manos abajo, arco amplio' },
       { id:'FO', name:'Fondos en máquina o banco',            sets:3, reps:'10–15', rpe:'7',   rest:'90 seg',  note:'Torso inclinado para enfatizar pecho' },
       { id:'ET', name:'Extensión de tríceps en polea',        sets:3, reps:'12–15', rpe:'7–8', rest:'60 seg',  note:'Codos pegados al cuerpo' },
       { id:'EC', name:'Extensión sobre cabeza con mancuerna', sets:3, reps:'10–12', rpe:'8',   rest:'90 seg',  note:'Un brazo o bilateral neutro' },

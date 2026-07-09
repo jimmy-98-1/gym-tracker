@@ -80,7 +80,7 @@ const EXERCISE_CATALOG = {
     { id:'PD',  name:'Press declinado con mancuernas',
       sets:3, reps:'10–12', rpe:'7–8', rest:'90 seg',
       note:'El banco a -15-30° dirige la carga hacia el pecho inferior y esternal. Mantén los omóplatos retraídos y el core apretado para estabilizarte en la posición declinada. El movimiento es el mismo que el press plano; baja hasta sentir estiramiento en el pecho y sube describiendo un arco.' },
-    { id:'AP',  name:'Aperturas en polea baja',
+    { id:'AP',  name:'Apertura en polea media',
       sets:3, reps:'12–15', rpe:'8', rest:'90 seg',
       note:'Con los cables desde abajo, el vector de fuerza se dirige hacia arriba y al centro, lo que maximiza la tensión en la parte superior del pecho. Mantén una ligera flexión en los codos durante todo el movimiento. Controla la apertura para que el pecho siempre esté bajo tensión y aprieta en el punto de cruce.' },
     { id:'AMP', name:'Aperturas con mancuernas planas',
